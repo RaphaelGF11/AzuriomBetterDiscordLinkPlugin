@@ -1,0 +1,18 @@
+{
+    "name": "azuriom/discord-login",
+    "type": "azuriom-plugin",
+    "description": "Allows users to log in or register using their Discord account.",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Azuriom\\Plugin\\DiscordLogin\\": "src/"
+        }
+    },
+    "replace": {
+        "guzzlehttp/guzzle": "*",
+        "psr/log": "*",
+        "symfony/http-foundation": "*",
+        "illuminate/support": "*",
+        "laravel/socialite": "*"
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "id": "discord-login",
+    "name": "Discord Login",
+    "description": "Allows users to log in or register using their Discord account, reusing the existing Discord role-linking system.",
+    "version": "0.1.0",
+    "url": "https://github.com/RaphaelGF11/AzuriomBetterDiscordLinkPlugin",
+    "authors": [
+        "RaphaelGF11"
+    ],
+    "azuriom_api": "1.0.0",
+    "providers": [
+        "\\Azuriom\\Plugin\\DiscordLogin\\Providers\\DiscordLoginServiceProvider",
+        "\\Azuriom\\Plugin\\DiscordLogin\\Providers\\RouteServiceProvider"
+    ]
+}

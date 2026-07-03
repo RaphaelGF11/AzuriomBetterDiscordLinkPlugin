@@ -1,0 +1,59 @@
+@extends('layouts.app')
+
+@section('title', trans('auth.passwords.confirm'))
+
+@php
+    $discordAccount = auth()->user()?->discordAccount;
+    $confirmViaDiscord = $discordAccount !== null && ! $discordAccount->has_custom_password;
+@endphp
+
+@section('content')
+<div class="row justify-content-center">
+    <div class="col-md-9 col-lg-6">
+        <h1>{{ trans('auth.passwords.confirm') }}</h1>
+
+        <div class="card">
+            <div class="card-body">
+                @if($confirmViaDiscord)
+                    <p>{{ trans('discord-login::messages.confirm.description') }}</p>
+
+                    <div class="d-grid mb-3">
+                        <a href="{{ route('discord-login.confirm') }}" class="btn btn-primary d-block" style="background-color: #5865F2; border-color: #5865F2;">
+                            <i class="bi bi-discord"></i> {{ trans('discord-login::messages.confirm.button') }}
+                        </a>
+                    </div>
+                @else
+                    <p>{{ trans('auth.confirmation') }}</p>
+
+                    <form method="POST" action="{{ route('password.confirm') }}">
+                        @csrf
+
+                        <div class="mb-3">
+                            <label class="form-label" for="password">{{ trans('auth.password') }}</label>
+                            <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="current-password">
+
+                            @error('password')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
+
+                        <div class="d-grid mb-3">
+                            <button type="submit" class="btn btn-primary">
+                                {{ trans('auth.passwords.confirm') }}
+                            </button>
+                        </div>
+
+                        <div class="text-center">
+                            <a href="{{ route('password.request') }}">
+                                {{ trans('auth.forgot_password') }}
+                            </a>
+                        </div>
+                    </form>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
