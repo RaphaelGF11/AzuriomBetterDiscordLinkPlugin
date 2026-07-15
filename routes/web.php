@@ -15,12 +15,15 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Not guest-only: an authenticated admin needs to reach this to test the
+// callback (see DiscordLoginController::callback()). Already-authenticated,
+// non-test visits are redirected away from inside the controller instead.
+Route::get('/callback', [DiscordLoginController::class, 'callback'])
+    ->name('callback')
+    ->middleware('throttle:6,1');
+
 Route::middleware('guest')->group(function () {
     Route::get('/redirect', [DiscordLoginController::class, 'redirect'])->name('redirect');
-
-    Route::get('/callback', [DiscordLoginController::class, 'callback'])
-        ->name('callback')
-        ->middleware('throttle:6,1');
 
     Route::get('/choose', [DiscordLoginController::class, 'showChoose'])->name('choose.show');
     Route::post('/choose', [DiscordLoginController::class, 'chooseAccount'])->name('choose');

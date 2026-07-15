@@ -19,6 +19,7 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class DiscordLoginController extends Controller
 {
@@ -47,6 +48,16 @@ class DiscordLoginController extends Controller
     public function callback(Request $request): Response
     {
         abort_if(setting('discord.client_id') === null, 404);
+
+        if ($request->session()->pull('discord-login.admin_test', false)) {
+            return $this->handleAdminTest();
+        }
+
+        // Not guest-only at the route level (see routes/web.php), so an already
+        // authenticated, non-test visit is redirected away here instead.
+        if (Auth::check()) {
+            return to_route('home');
+        }
 
         $intent = $request->session()->pull('discord-login.intent', 'login');
 
@@ -257,6 +268,7 @@ class DiscordLoginController extends Controller
             'defaultName' => $pending['username'],
             'discordEmail' => $pending['email'],
             'duplicate' => $pending['duplicate'] ?? false,
+            'passwordRequired' => ! setting('discord-login.allow_passwordless', true),
         ]);
     }
 
@@ -279,9 +291,11 @@ class DiscordLoginController extends Controller
             ]);
         }
 
+        $passwordRequired = ! setting('discord-login.allow_passwordless', true);
+
         $data = $this->validate($request, [
             'name' => ['required', 'string', 'max:25', 'unique:users', new Username(), new GameAuth()],
-            'password' => ['nullable', 'confirmed', Password::default()],
+            'password' => [$passwordRequired ? 'required' : 'nullable', 'confirmed', Password::default()],
         ]);
 
         $password = $data['password'] ?? null;
@@ -399,6 +413,10 @@ class DiscordLoginController extends Controller
      */
     public function confirmCallback(Request $request): Response
     {
+        if ($request->session()->pull('discord-login.admin_test', false)) {
+            return $this->handleAdminTest();
+        }
+
         $account = $request->user()->discordAccount;
 
         abort_if($account === null || $account->has_custom_password, 404);
@@ -426,6 +444,30 @@ class DiscordLoginController extends Controller
         return Socialite::driver('discord')
             ->scopes(['identify', 'email'])
             ->redirectUrl(route('discord-login.callback'));
+    }
+
+    /**
+     * Handle a request initiated from the admin "test configuration" button
+     * (see Admin\SettingsController::testCallback()): reaching this code at all,
+     * on either of the plugin's two real callback URLs, proves Discord accepted
+     * them as registered redirect URIs.
+     */
+    protected function handleAdminTest(): Response
+    {
+        try {
+            $discordUser = Socialite::driver('discord')
+                ->scopes(['identify'])
+                ->redirectUrl(url()->current())
+                ->user();
+        } catch (Throwable $e) {
+            return to_route('discord-login.admin.settings')
+                ->with('error', trans('discord-login::admin.test.callback_failed'));
+        }
+
+        return to_route('discord-login.admin.settings')->with('success', trans(
+            'discord-login::admin.test.callback_ok',
+            ['name' => $discordUser->getNickname() ?? $discordUser->getName()]
+        ));
     }
 
     /**

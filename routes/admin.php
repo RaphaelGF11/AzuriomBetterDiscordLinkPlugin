@@ -18,4 +18,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('can:discord-login.admin')->group(function () {
     Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
     Route::post('/settings', [SettingsController::class, 'save'])->name('settings.save');
+
+    Route::post('/settings/test-credentials', [SettingsController::class, 'testCredentials'])
+        ->name('settings.test-credentials');
+
+    Route::get('/settings/test-callback', [SettingsController::class, 'testCallback'])
+        ->name('settings.test-callback');
 });

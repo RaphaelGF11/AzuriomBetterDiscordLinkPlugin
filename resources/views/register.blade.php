@@ -37,8 +37,8 @@
                     @endif
 
                     <div class="mb-3">
-                        <label class="form-label" for="password">{{ trans('discord-login::messages.register.password_optional') }}</label>
-                        <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" autocomplete="new-password">
+                        <label class="form-label" for="password">{{ trans($passwordRequired ? 'auth.password' : 'discord-login::messages.register.password_optional') }}</label>
+                        <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" autocomplete="new-password" @required($passwordRequired)>
 
                         @error('password')
                             <span class="invalid-feedback" role="alert">
@@ -46,12 +46,14 @@
                             </span>
                         @enderror
 
-                        <div class="form-text">{{ trans('discord-login::messages.register.password_help') }}</div>
+                        @unless($passwordRequired)
+                            <div class="form-text">{{ trans('discord-login::messages.register.password_help') }}</div>
+                        @endunless
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label" for="password-confirm">{{ trans('auth.confirm_password') }}</label>
-                        <input id="password-confirm" type="password" class="form-control" name="password_confirmation" autocomplete="new-password">
+                        <input id="password-confirm" type="password" class="form-control" name="password_confirmation" autocomplete="new-password" @required($passwordRequired)>
                     </div>
 
                     <div class="d-grid">
