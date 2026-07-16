@@ -6,12 +6,15 @@ use Azuriom\Extensions\Plugin\BasePluginServiceProvider;
 use Azuriom\Models\DiscordAccount;
 use Azuriom\Models\Permission;
 use Azuriom\Models\User;
+use Azuriom\Plugin\DiscordLogin\Support\DiscordCredentials;
 use Azuriom\Plugin\DiscordLogin\Support\DiscordLoginProfileCard;
 use Azuriom\Plugin\DiscordLogin\Support\DiscordOnlyAwareUserProvider;
+use Azuriom\Socialite\DiscordProvider;
 use Azuriom\Support\Discord\LinkedRoles;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
+use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
 use Throwable;
 
 class DiscordLoginServiceProvider extends BasePluginServiceProvider
@@ -73,9 +76,29 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
 
         $this->registerPasswordLoginGuard();
 
+        $this->registerSocialiteDriver();
+
         $this->registerViewOverrides();
 
         $this->registerViewComposers();
+    }
+
+    /**
+     * Register a dedicated Socialite driver so the plugin can use its own
+     * Discord application credentials when the corresponding setting is
+     * enabled, instead of always sharing the role-linking ones.
+     */
+    protected function registerSocialiteDriver(): void
+    {
+        $socialite = $this->app->make(SocialiteFactory::class);
+
+        $socialite->extend('discord-login', function () use ($socialite) {
+            return $socialite->buildProvider(DiscordProvider::class, [
+                'client_id' => DiscordCredentials::clientId(),
+                'client_secret' => DiscordCredentials::clientSecret(),
+                'redirect' => '/discord-login/callback',
+            ]);
+        });
     }
 
     /**
@@ -226,7 +249,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     protected function registerViewComposers(): void
     {
         View::composer(['auth.login', 'auth.register'], function ($view) {
-            $view->with('discordLoginEnabled', setting('discord.client_id') !== null);
+            $view->with('discordLoginEnabled', DiscordCredentials::clientId() !== null);
         });
 
         View::composer('profile.index', DiscordLoginProfileCard::class);

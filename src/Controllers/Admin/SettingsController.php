@@ -4,6 +4,7 @@ namespace Azuriom\Plugin\DiscordLogin\Controllers\Admin;
 
 use Azuriom\Http\Controllers\Controller;
 use Azuriom\Models\Setting;
+use Azuriom\Plugin\DiscordLogin\Support\DiscordCredentials;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Laravel\Socialite\Facades\Socialite;
@@ -19,6 +20,10 @@ class SettingsController extends Controller
         return view('discord-login::admin.settings', [
             'allowDuplicates' => setting('discord-login.allow_duplicates', false),
             'allowPasswordless' => setting('discord-login.allow_passwordless', true),
+            'useCustomCredentials' => setting('discord-login.use_custom_credentials', false),
+            'customClientId' => setting('discord-login.client_id'),
+            'customClientSecret' => setting('discord-login.client_secret'),
+            'matchByEmail' => setting('discord-login.match_by_email', false),
             'showHttpWarning' => $this->isInsecureNonLocalUrl($request),
         ]);
     }
@@ -39,12 +44,23 @@ class SettingsController extends Controller
 
     /**
      * Save the plugin's settings.
+     *
+     * @throws \Illuminate\Validation\ValidationException
      */
     public function save(Request $request)
     {
+        $this->validate($request, [
+            'client_id' => ['nullable', 'required_with:use_custom_credentials', 'string'],
+            'client_secret' => ['nullable', 'required_with:use_custom_credentials', 'string'],
+        ]);
+
         Setting::updateSettings([
             'discord-login.allow_duplicates' => $request->boolean('allow_duplicates'),
             'discord-login.allow_passwordless' => $request->boolean('allow_passwordless'),
+            'discord-login.use_custom_credentials' => $request->boolean('use_custom_credentials'),
+            'discord-login.client_id' => $request->input('client_id'),
+            'discord-login.client_secret' => $request->input('client_secret'),
+            'discord-login.match_by_email' => $request->boolean('match_by_email'),
         ]);
 
         return to_route('discord-login.admin.settings')
@@ -58,8 +74,8 @@ class SettingsController extends Controller
      */
     public function testCredentials()
     {
-        $clientId = setting('discord.client_id');
-        $clientSecret = setting('discord.client_secret');
+        $clientId = DiscordCredentials::clientId();
+        $clientSecret = DiscordCredentials::clientSecret();
 
         if ($clientId === null || $clientSecret === null) {
             return to_route('discord-login.admin.settings')
@@ -99,7 +115,7 @@ class SettingsController extends Controller
      */
     public function testCallback(Request $request)
     {
-        abort_if(setting('discord.client_id') === null, 404);
+        abort_if(DiscordCredentials::clientId() === null, 404);
 
         $redirectUrl = $request->query('target') === 'confirm'
             ? route('discord-login.confirm.callback')
@@ -107,7 +123,7 @@ class SettingsController extends Controller
 
         $request->session()->put('discord-login.admin_test', true);
 
-        return Socialite::driver('discord')
+        return Socialite::driver('discord-login')
             ->scopes(['identify'])
             ->redirectUrl($redirectUrl)
             ->redirect();

@@ -6,6 +6,7 @@ use Azuriom\Http\Controllers\Controller;
 use Azuriom\Models\ActionLog;
 use Azuriom\Models\DiscordAccount;
 use Azuriom\Models\User;
+use Azuriom\Plugin\DiscordLogin\Support\DiscordCredentials;
 use Azuriom\Rules\GameAuth;
 use Azuriom\Rules\Username;
 use Illuminate\Auth\Events\Registered;
@@ -33,7 +34,7 @@ class DiscordLoginController extends Controller
      */
     public function redirect(Request $request)
     {
-        abort_if(setting('discord.client_id') === null, 404);
+        abort_if(DiscordCredentials::clientId() === null, 404);
 
         $intent = $request->query('intent') === 'register' ? 'register' : 'login';
 
@@ -47,7 +48,7 @@ class DiscordLoginController extends Controller
      */
     public function callback(Request $request): Response
     {
-        abort_if(setting('discord.client_id') === null, 404);
+        abort_if(DiscordCredentials::clientId() === null, 404);
 
         if ($request->session()->pull('discord-login.admin_test', false)) {
             return $this->handleAdminTest();
@@ -73,6 +74,20 @@ class DiscordLoginController extends Controller
         $accounts = DiscordAccount::where('discord_user_id', $discordUser->getId())->get();
 
         if ($accounts->isEmpty()) {
+            // Opt-in fallback: match the (verified) Discord email against site
+            // accounts. Only used when no explicit Discord link matched, and only
+            // for logins - a register attempt keeps the normal "email already
+            // used" behavior instead of silently logging into someone's account.
+            if ($intent === 'login'
+                && $discordEmail !== null
+                && setting('discord-login.match_by_email', false)) {
+                $user = User::firstWhere('email', $discordEmail);
+
+                if ($user !== null) {
+                    return $this->loginUser($request, $user, null, null);
+                }
+            }
+
             $request->session()->put('discord-login.pending', [
                 'id' => $discordUser->getId(),
                 'username' => $discordUser->getNickname() ?? $discordUser->getName(),
@@ -401,7 +416,7 @@ class DiscordLoginController extends Controller
         // password confirmation; accounts with one must confirm with it.
         abort_if($account === null || $account->has_custom_password, 404);
 
-        return Socialite::driver('discord')
+        return Socialite::driver('discord-login')
             ->scopes(['identify'])
             ->redirectUrl(route('discord-login.confirm.callback'))
             ->redirect();
@@ -421,7 +436,7 @@ class DiscordLoginController extends Controller
 
         abort_if($account === null || $account->has_custom_password, 404);
 
-        $discordUser = Socialite::driver('discord')
+        $discordUser = Socialite::driver('discord-login')
             ->scopes(['identify'])
             ->redirectUrl(route('discord-login.confirm.callback'))
             ->user();
@@ -441,7 +456,7 @@ class DiscordLoginController extends Controller
      */
     protected function driver()
     {
-        return Socialite::driver('discord')
+        return Socialite::driver('discord-login')
             ->scopes(['identify', 'email'])
             ->redirectUrl(route('discord-login.callback'));
     }
@@ -455,7 +470,7 @@ class DiscordLoginController extends Controller
     protected function handleAdminTest(): Response
     {
         try {
-            $discordUser = Socialite::driver('discord')
+            $discordUser = Socialite::driver('discord-login')
                 ->scopes(['identify'])
                 ->redirectUrl(url()->current())
                 ->user();
@@ -496,8 +511,16 @@ class DiscordLoginController extends Controller
      */
     protected function loginAccount(Request $request, DiscordAccount $account, ?string $discordEmail): Response
     {
-        $user = $account->user;
+        return $this->loginUser($request, $account->user, $account, $discordEmail);
+    }
 
+    /**
+     * Log in a user matched via Discord (by explicit link, or by verified email
+     * when that fallback is enabled - in which case there is no DiscordAccount
+     * row and the 2FA bypass never applies).
+     */
+    protected function loginUser(Request $request, ?User $user, ?DiscordAccount $account, ?string $discordEmail): Response
+    {
         // Same gates as the core password login: deleted accounts (stale
         // discord_accounts rows from before this plugin cleaned them up) and
         // admin-forced password resets must not be bypassable via Discord.
@@ -517,7 +540,7 @@ class DiscordLoginController extends Controller
             return to_route('login')->with('error', trans('auth.maintenance'));
         }
 
-        if ($user->hasTwoFactorAuth() && ! $account->bypass_2fa) {
+        if ($user->hasTwoFactorAuth() && ! ($account?->bypass_2fa)) {
             $request->session()->put('login.2fa', [
                 'id' => $user->id,
                 'remember' => true,
