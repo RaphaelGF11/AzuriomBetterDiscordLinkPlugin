@@ -3,16 +3,22 @@
 namespace Azuriom\Plugin\DiscordLogin\Providers;
 
 use Azuriom\Extensions\Plugin\BasePluginServiceProvider;
+use Azuriom\Http\Middleware\CheckForMaintenanceSettings;
 use Azuriom\Models\DiscordAccount;
 use Azuriom\Models\Permission;
 use Azuriom\Models\User;
+use Azuriom\Plugin\DiscordLogin\Console\Commands\SyncDiscordRolesCommand;
 use Azuriom\Plugin\DiscordLogin\Support\DiscordCredentials;
 use Azuriom\Plugin\DiscordLogin\Support\DiscordLoginProfileCard;
 use Azuriom\Plugin\DiscordLogin\Support\DiscordOnlyAwareUserProvider;
+use Azuriom\Plugin\DiscordLogin\Support\MaintenanceBypassMiddleware;
+use Azuriom\Plugin\DiscordLogin\Support\RoleSyncEvaluator;
 use Azuriom\Socialite\DiscordProvider;
 use Azuriom\Support\Discord\LinkedRoles;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
 use Throwable;
@@ -76,7 +82,15 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
 
         $this->registerPasswordLoginGuard();
 
+        $this->registerPasswordSync();
+
+        $this->registerLinkPasswordSync();
+
         $this->registerSocialiteDriver();
+
+        $this->registerMaintenanceBypass();
+
+        $this->registerRoleSync();
 
         $this->registerViewOverrides();
 
@@ -238,6 +252,115 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     }
 
     /**
+     * Mark a Discord account as having a custom password as soon as its
+     * user's password is actually changed, regardless of which flow did it
+     * (admin edit at /admin/users/{id}/edit, forgot-password reset, this
+     * plugin's own profile "set a password" action, ...). Otherwise a
+     * password set this way would work, but the account would still be
+     * treated as passwordless everywhere else (login guard, unlink guard,
+     * profile views).
+     *
+     * Also clears users.discord_login_passwordless, the flag that survives a
+     * forced admin unlink of a passwordless account (see
+     * Admin\UserController::forceUnlinkDiscord()) after its discord_accounts
+     * row is gone - saved quietly to avoid re-triggering this same listener.
+     */
+    protected function registerPasswordSync(): void
+    {
+        User::saved(function (User $user) {
+            if (! $user->wasChanged('password')) {
+                return;
+            }
+
+            if ($user->discord_login_passwordless) {
+                $user->forceFill(['discord_login_passwordless' => false])->saveQuietly();
+            }
+
+            $account = $user->discordAccount;
+
+            if ($account !== null && ! $account->has_custom_password) {
+                $account->forceFill(['has_custom_password' => true])->save();
+            }
+        });
+    }
+
+    /**
+     * Mirror users.discord_login_passwordless onto any *new* discord_accounts
+     * row's has_custom_password, in the other direction from registerPasswordSync()
+     * above.
+     *
+     * This plugin's own register() already sets has_custom_password correctly
+     * on the row it creates. But a new row can also be created by the core
+     * profile Discord-link flow (Azuriom\Http\Controllers\ProfileController),
+     * which knows nothing about this plugin's passwordless concept and always
+     * defaults has_custom_password to true (the migration's column default -
+     * correct for the common case of linking Discord to an account that
+     * already has a real password). Without this, re-linking Discord to a
+     * still-passwordless account (e.g. after a forced admin unlink, see
+     * Admin\UserController::forceUnlinkDiscord()) would wrongly mark it as
+     * having a custom password again, defeating the login guard, unlink
+     * guard and profile views that rely on that flag.
+     *
+     * Uses "creating" (not "saving") so this never re-evaluates on ordinary
+     * token-refresh saves() of an *existing* row, which could otherwise wipe
+     * out a legitimate has_custom_password=true set later by registerPasswordSync().
+     */
+    protected function registerLinkPasswordSync(): void
+    {
+        DiscordAccount::creating(function (DiscordAccount $account) {
+            if ($account->user?->discord_login_passwordless) {
+                $account->has_custom_password = false;
+            }
+        });
+    }
+
+    /**
+     * Let the plugin's own routes through the core's global maintenance
+     * middleware when the "bypass maintenance" setting is enabled - that
+     * middleware blocks every route by default, including these, well before
+     * the controller (and its own maintenance handling) ever runs.
+     */
+    protected function registerMaintenanceBypass(): void
+    {
+        $this->app->bind(CheckForMaintenanceSettings::class, MaintenanceBypassMiddleware::class);
+    }
+
+    /**
+     * Keep Discord guild roles in line with the role-sync rules (see
+     * RoleSync/RoleSyncEvaluator): reconcile a user in real time whenever a
+     * condition-relevant change happens, and register a scheduled sweep as
+     * the correctness backstop for changes with no matching event (a shop
+     * subscription lapsing fires nothing - see SyncDiscordRolesCommand).
+     */
+    protected function registerRoleSync(): void
+    {
+        $evaluator = fn () => $this->app->make(RoleSyncEvaluator::class);
+
+        User::updated(function (User $user) use ($evaluator) {
+            if ($user->isDirty('role_id') || $user->isDirty('money')) {
+                $evaluator()->reconcileUser($user);
+            }
+        });
+
+        // The shop plugin is optional and may not be installed/enabled.
+        if (class_exists(\Azuriom\Plugin\Shop\Events\PackageDelivered::class)) {
+            Event::listen(\Azuriom\Plugin\Shop\Events\PackageDelivered::class, function ($event) use ($evaluator) {
+                $evaluator()->reconcileUser($event->user);
+            });
+        }
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([SyncDiscordRolesCommand::class]);
+        }
+
+        $this->app->booted(function () {
+            $this->app->make(Schedule::class)
+                ->command(SyncDiscordRolesCommand::class)
+                ->everyFifteenMinutes();
+        });
+    }
+
+    /**
      * Override the core auth views with the plugin's copies, so a Discord
      * login/register button can be added without editing the core views.
      */
@@ -250,6 +373,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     {
         View::composer(['auth.login', 'auth.register'], function ($view) {
             $view->with('discordLoginEnabled', DiscordCredentials::clientId() !== null);
+            $view->with('discordGuildRestricted', setting('discord-login.required_guild_id') !== null);
         });
 
         View::composer('profile.index', DiscordLoginProfileCard::class);

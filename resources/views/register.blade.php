@@ -14,7 +14,7 @@
 
         <div class="card">
             <div class="card-body">
-                <form method="POST" action="{{ route('discord-login.register') }}">
+                <form method="POST" action="{{ route('discord-login.register') }}" id="captcha-form">
                     @csrf
 
                     <div class="mb-3">
@@ -28,7 +28,18 @@
                         @enderror
                     </div>
 
-                    @if($discordEmail !== null)
+                    @if($customizableEmail)
+                        <div class="mb-3">
+                            <label class="form-label" for="email">{{ trans('auth.email') }}</label>
+                            <input id="email" type="email" class="form-control @error('email') is-invalid @enderror" name="email" value="{{ old('email', $discordEmail) }}" required autocomplete="email">
+
+                            @error('email')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
+                    @elseif($discordEmail !== null)
                         <div class="mb-3">
                             <label class="form-label">{{ trans('auth.email') }}</label>
                             <input type="email" class="form-control" value="{{ $discordEmail }}" disabled>
@@ -55,6 +66,8 @@
                         <label class="form-label" for="password-confirm">{{ trans('auth.confirm_password') }}</label>
                         <input id="password-confirm" type="password" class="form-control" name="password_confirmation" autocomplete="new-password" @required($passwordRequired)>
                     </div>
+
+                    @include('elements.captcha', ['center' => true])
 
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">

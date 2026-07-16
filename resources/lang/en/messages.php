@@ -6,6 +6,8 @@ return [
     'duplicate' => 'This Discord account is already linked to another account.',
     'email_mismatch' => "Login successful. Warning: your Discord account's email address does not match your account's email.",
     'password_login_disabled' => 'This account has no password set: log in with Discord instead.',
+    'guild_required' => 'You need to join our Discord server before you can log in or register with Discord.',
+    'guild_notice' => 'You will need to join our Discord server to link your account.',
 
     'login' => [
         'button' => 'Log in with Discord',
@@ -48,5 +50,10 @@ return [
         'no_password' => 'Your account has no password set. You can create one here to also be able to log in without Discord.',
         'set_password' => 'Set a password',
         'unlink_locked' => 'You must set a password first before unlinking your Discord account, otherwise you would no longer be able to log into your account.',
+    ],
+
+    'tools' => [
+        'recovery_dm' => "Hi! An administrator of :site generated a new password for your account:\n\n:password\n\nYou will be asked to change it the next time you log in with it.",
+        'recovery_codes_dm' => "Hi! An administrator of :site regenerated your two-factor authentication recovery codes. Your previous codes no longer work. Here are your new ones - keep them somewhere safe:\n\n:codes",
     ],
 ];

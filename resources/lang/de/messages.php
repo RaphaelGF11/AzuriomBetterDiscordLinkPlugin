@@ -6,6 +6,8 @@ return [
     'duplicate' => 'Dieses Discord-Konto ist bereits mit einem anderen Konto verknüpft.',
     'email_mismatch' => 'Anmeldung erfolgreich. Achtung: Die E-Mail-Adresse deines Discord-Kontos stimmt nicht mit der deines Kontos überein.',
     'password_login_disabled' => 'Für dieses Konto ist kein Passwort festgelegt: Melde dich stattdessen mit Discord an.',
+    'guild_required' => 'Du musst unserem Discord-Server beitreten, bevor du dich mit Discord anmelden oder registrieren kannst.',
+    'guild_notice' => 'Du musst unserem Discord-Server beitreten, um dein Konto zu verknüpfen.',
 
     'login' => [
         'button' => 'Mit Discord anmelden',
@@ -48,5 +50,10 @@ return [
         'no_password' => 'Für dein Konto ist kein Passwort festgelegt. Du kannst hier eines erstellen, um dich auch ohne Discord anmelden zu können.',
         'set_password' => 'Passwort festlegen',
         'unlink_locked' => 'Du musst zuerst ein Passwort festlegen, bevor du dein Discord-Konto trennen kannst, sonst könntest du dich nicht mehr bei deinem Konto anmelden.',
+    ],
+
+    'tools' => [
+        'recovery_dm' => "Hallo! Ein Administrator von :site hat ein neues Passwort für dein Konto generiert:\n\n:password\n\nDu wirst bei der nächsten Anmeldung damit aufgefordert, es zu ändern.",
+        'recovery_codes_dm' => "Hallo! Ein Administrator von :site hat deine Zwei-Faktor-Wiederherstellungscodes neu generiert. Deine bisherigen Codes funktionieren nicht mehr. Hier sind deine neuen Codes - bewahre sie sicher auf:\n\n:codes",
     ],
 ];

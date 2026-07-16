@@ -6,6 +6,8 @@ use Azuriom\Http\Controllers\Controller;
 use Azuriom\Models\ActionLog;
 use Azuriom\Models\DiscordAccount;
 use Azuriom\Models\User;
+use Azuriom\Plugin\DiscordLogin\Support\DiscordAvatar;
+use Azuriom\Plugin\DiscordLogin\Support\DiscordBotClient;
 use Azuriom\Plugin\DiscordLogin\Support\DiscordCredentials;
 use Azuriom\Rules\GameAuth;
 use Azuriom\Rules\Username;
@@ -64,6 +66,10 @@ class DiscordLoginController extends Controller
 
         $discordUser = $this->driver()->user();
 
+        if (($guildError = $this->ensureGuildMembership($discordUser)) !== null) {
+            return $guildError;
+        }
+
         // Only trust the email if Discord reports it as verified, otherwise anyone
         // could put someone else's address on their Discord account and register
         // with it here (squatting the address and blocking its real owner).
@@ -80,11 +86,17 @@ class DiscordLoginController extends Controller
             // used" behavior instead of silently logging into someone's account.
             if ($intent === 'login'
                 && $discordEmail !== null
-                && setting('discord-login.match_by_email', false)) {
+                && setting('discord-login.match_by_email', false)
+                // Kept mutually exclusive with duplicate links and a customizable
+                // registration email (see Admin\SettingsController::save()); this
+                // check is a defensive fallback in case settings ever drift out
+                // of sync with each other (e.g. edited directly in the database).
+                && ! setting('discord-login.allow_duplicates', false)
+                && ! setting('discord-login.customizable_email', false)) {
                 $user = User::firstWhere('email', $discordEmail);
 
                 if ($user !== null) {
-                    return $this->loginUser($request, $user, null, null);
+                    return $this->loginUser($request, $user, null, null, $this->avatarData($discordUser));
                 }
             }
 
@@ -92,6 +104,8 @@ class DiscordLoginController extends Controller
                 'id' => $discordUser->getId(),
                 'username' => $discordUser->getNickname() ?? $discordUser->getName(),
                 'email' => $discordEmail,
+                'avatar' => Arr::get($discordUser->getRaw(), 'avatar'),
+                'discriminator' => Arr::get($discordUser->getRaw(), 'discriminator'),
                 'access_token' => $discordUser->token,
                 'refresh_token' => $discordUser->refreshToken,
                 'expires_in' => $discordUser->expiresIn,
@@ -109,6 +123,8 @@ class DiscordLoginController extends Controller
                 'discord_user_id' => $discordUser->getId(),
                 'username' => $discordUser->getNickname() ?? $discordUser->getName(),
                 'user_ids' => $accounts->pluck('user_id')->all(),
+                'avatar' => Arr::get($discordUser->getRaw(), 'avatar'),
+                'discriminator' => Arr::get($discordUser->getRaw(), 'discriminator'),
                 'access_token' => $discordUser->token,
                 'refresh_token' => $discordUser->refreshToken,
                 'expires_in' => $discordUser->expiresIn,
@@ -128,12 +144,14 @@ class DiscordLoginController extends Controller
                 'expires_at' => now()->addSeconds($discordUser->expiresIn),
             ])->save();
 
-            return $this->loginAccount($request, $account, $discordEmail);
+            return $this->loginAccount($request, $account, $discordEmail, $this->avatarData($discordUser));
         }
 
         $request->session()->put('discord-login.choice', [
             'discord_user_id' => $discordUser->getId(),
             'user_ids' => $accounts->pluck('user_id')->all(),
+            'avatar' => Arr::get($discordUser->getRaw(), 'avatar'),
+            'discriminator' => Arr::get($discordUser->getRaw(), 'discriminator'),
             'access_token' => $discordUser->token,
             'refresh_token' => $discordUser->refreshToken,
             'expires_in' => $discordUser->expiresIn,
@@ -184,7 +202,11 @@ class DiscordLoginController extends Controller
                 'expires_at' => now()->addSeconds($conflict['expires_in']),
             ])->save();
 
-            return $this->loginAccount($request, $account, $conflict['email']);
+            return $this->loginAccount($request, $account, $conflict['email'], [
+                'id' => $conflict['discord_user_id'],
+                'avatar' => $conflict['avatar'] ?? null,
+                'discriminator' => $conflict['discriminator'] ?? null,
+            ]);
         }
 
         $request->session()->put('discord-login.choice', Arr::except($conflict, ['username']));
@@ -212,6 +234,8 @@ class DiscordLoginController extends Controller
             'id' => $conflict['discord_user_id'],
             'username' => $conflict['username'],
             'email' => $conflict['email'],
+            'avatar' => $conflict['avatar'] ?? null,
+            'discriminator' => $conflict['discriminator'] ?? null,
             'access_token' => $conflict['access_token'],
             'refresh_token' => $conflict['refresh_token'],
             'expires_in' => $conflict['expires_in'],
@@ -265,7 +289,11 @@ class DiscordLoginController extends Controller
 
         $request->session()->forget('discord-login.choice');
 
-        return $this->loginAccount($request, $account, $choice['email']);
+        return $this->loginAccount($request, $account, $choice['email'], [
+            'id' => $choice['discord_user_id'],
+            'avatar' => $choice['avatar'] ?? null,
+            'discriminator' => $choice['discriminator'] ?? null,
+        ]);
     }
 
     /**
@@ -282,6 +310,7 @@ class DiscordLoginController extends Controller
         return view('discord-login::register', [
             'defaultName' => $pending['username'],
             'discordEmail' => $pending['email'],
+            'customizableEmail' => setting('discord-login.customizable_email', false),
             'duplicate' => $pending['duplicate'] ?? false,
             'passwordRequired' => ! setting('discord-login.allow_passwordless', true),
         ]);
@@ -300,29 +329,55 @@ class DiscordLoginController extends Controller
             return to_route('login');
         }
 
-        if ($pending['email'] !== null && User::where('email', $pending['email'])->exists()) {
-            throw ValidationException::withMessages([
-                'name' => trans('discord-login::messages.register.email_used'),
-            ]);
-        }
-
+        $customizableEmail = setting('discord-login.customizable_email', false);
         $passwordRequired = ! setting('discord-login.allow_passwordless', true);
 
-        $data = $this->validate($request, [
-            'name' => ['required', 'string', 'max:25', 'unique:users', new Username(), new GameAuth()],
-            'password' => [$passwordRequired ? 'required' : 'nullable', 'confirmed', Password::default()],
-        ]);
+        if ($customizableEmail) {
+            $data = $this->validate($request, [
+                'name' => ['required', 'string', 'max:25', 'unique:users', new Username(), new GameAuth()],
+                'email' => ['required', 'string', 'email', 'max:50', 'unique:users'],
+                'password' => [$passwordRequired ? 'required' : 'nullable', 'confirmed', Password::default()],
+            ]);
+
+            $email = $data['email'];
+        } else {
+            if ($pending['email'] !== null && User::where('email', $pending['email'])->exists()) {
+                throw ValidationException::withMessages([
+                    'name' => trans('discord-login::messages.register.email_used'),
+                ]);
+            }
+
+            $data = $this->validate($request, [
+                'name' => ['required', 'string', 'max:25', 'unique:users', new Username(), new GameAuth()],
+                'password' => [$passwordRequired ? 'required' : 'nullable', 'confirmed', Password::default()],
+            ]);
+
+            $email = $pending['email'];
+        }
 
         $password = $data['password'] ?? null;
+
+        // $pending['email'] is only ever populated when Discord reported it
+        // verified (see callback()), so the final email matching it exactly
+        // means it's already been proven to belong to this user: mark it
+        // verified right away instead of sending a confirmation email for it.
+        $emailVerified = $email !== null && $email === $pending['email'];
 
         // Atomic: if the duplicate guard rejects the Discord link, the user row
         // is rolled back too instead of remaining as an orphan squatting the
         // username and email.
-        $user = DB::transaction(function () use ($request, $data, $pending, $password) {
+        $user = DB::transaction(function () use ($request, $data, $pending, $password, $email, $emailVerified) {
             $user = User::forceCreate([
                 'name' => $data['name'],
-                'email' => $pending['email'],
+                'email' => $email,
+                'email_verified_at' => $emailVerified ? now() : null,
+                'avatar' => setting('discord-login.sync_avatar', false) ? DiscordAvatar::urlFrom([
+                    'id' => $pending['id'],
+                    'avatar' => $pending['avatar'] ?? null,
+                    'discriminator' => $pending['discriminator'] ?? null,
+                ]) : null,
                 'password' => $password ?? Str::random(128),
+                'discord_login_passwordless' => $password === null,
                 'game_id' => game()->getUserUniqueId($data['name']),
                 'last_login_ip' => $request->ip(),
                 'last_login_at' => now(),
@@ -453,12 +508,51 @@ class DiscordLoginController extends Controller
     /**
      * Build the Discord Socialite driver with this plugin's own callback and scopes,
      * reusing the client_id/client_secret already configured for role linking.
+     * Only requests the broader "guilds.join" scope when the guild-restriction
+     * setting is actually active, so it isn't asked for needlessly otherwise.
      */
     protected function driver()
     {
+        $scopes = ['identify', 'email'];
+
+        if (setting('discord-login.required_guild_id') !== null) {
+            $scopes[] = 'guilds.join';
+        }
+
         return Socialite::driver('discord-login')
-            ->scopes(['identify', 'email'])
+            ->scopes($scopes)
             ->redirectUrl(route('discord-login.callback'));
+    }
+
+    /**
+     * When "restrict to members of a server" is configured, make sure this
+     * Discord user is (or, thanks to the "guilds.join" scope above, can be
+     * made) a member of that guild before letting them go any further -
+     * applies to every login/register attempt, not just the first link, so
+     * someone who later leaves the guild is caught too.
+     *
+     * Returns a redirect response to abort the flow with, or null to continue.
+     */
+    protected function ensureGuildMembership($discordUser): ?Response
+    {
+        $guildId = setting('discord-login.required_guild_id');
+
+        if ($guildId === null) {
+            return null;
+        }
+
+        // A null result covers both "not a member" and any other API failure -
+        // either way, attempting to add them is the right next step, and if
+        // that also fails we fall through to the same "please join" error.
+        if (DiscordBotClient::guildMemberRoles($guildId, $discordUser->getId()) !== null) {
+            return null;
+        }
+
+        if (DiscordBotClient::addGuildMember($guildId, $discordUser->getId(), $discordUser->token)) {
+            return null;
+        }
+
+        return to_route('login')->with('error', trans('discord-login::messages.guild_required'));
     }
 
     /**
@@ -509,9 +603,9 @@ class DiscordLoginController extends Controller
      * Log in the user behind a linked Discord account, honoring bans, maintenance
      * mode and the per-account 2FA bypass setting.
      */
-    protected function loginAccount(Request $request, DiscordAccount $account, ?string $discordEmail): Response
+    protected function loginAccount(Request $request, DiscordAccount $account, ?string $discordEmail, array $discordAvatarData = []): Response
     {
-        return $this->loginUser($request, $account->user, $account, $discordEmail);
+        return $this->loginUser($request, $account->user, $account, $discordEmail, $discordAvatarData);
     }
 
     /**
@@ -519,7 +613,7 @@ class DiscordLoginController extends Controller
      * when that fallback is enabled - in which case there is no DiscordAccount
      * row and the 2FA bypass never applies).
      */
-    protected function loginUser(Request $request, ?User $user, ?DiscordAccount $account, ?string $discordEmail): Response
+    protected function loginUser(Request $request, ?User $user, ?DiscordAccount $account, ?string $discordEmail, array $discordAvatarData = []): Response
     {
         // Same gates as the core password login: deleted accounts (stale
         // discord_accounts rows from before this plugin cleaned them up) and
@@ -551,10 +645,16 @@ class DiscordLoginController extends Controller
 
         Auth::login($user, true);
 
-        $user->forceFill([
+        $attributes = [
             'last_login_ip' => $request->ip(),
             'last_login_at' => now(),
-        ])->save();
+        ];
+
+        if (setting('discord-login.sync_avatar', false) && $discordAvatarData !== []) {
+            $attributes['avatar'] = DiscordAvatar::urlFrom($discordAvatarData);
+        }
+
+        $user->forceFill($attributes)->save();
 
         ActionLog::log('users.login', null, [
             'ip' => $request->ip(),
@@ -571,9 +671,27 @@ class DiscordLoginController extends Controller
         return to_route('home')->with('success', $message);
     }
 
+    /**
+     * The subset of a Socialite Discord user's raw data DiscordAvatar::urlFrom()
+     * needs, used both directly (fresh $discordUser in this request) and
+     * reconstructed from what's stashed in session (conflict/choice payloads).
+     */
+    protected function avatarData($discordUser): array
+    {
+        return [
+            'id' => $discordUser->getId(),
+            'avatar' => Arr::get($discordUser->getRaw(), 'avatar'),
+            'discriminator' => Arr::get($discordUser->getRaw(), 'discriminator'),
+        ];
+    }
+
     protected function isMaintenance(User $user): bool
     {
         if (! setting('maintenance.enabled', false)) {
+            return false;
+        }
+
+        if (setting('discord-login.bypass_maintenance', true)) {
             return false;
         }
 

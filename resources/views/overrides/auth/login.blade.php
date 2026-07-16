@@ -66,6 +66,12 @@
                 @if($discordLoginEnabled ?? false)
                     <hr>
 
+                    @if($discordGuildRestricted ?? false)
+                        <div class="form-text mb-2">
+                            {{ trans('discord-login::messages.guild_notice') }}
+                        </div>
+                    @endif
+
                     <div class="d-grid">
                         <a href="{{ route('discord-login.redirect', ['intent' => 'login']) }}" class="btn btn-primary d-block" style="background-color: #5865F2; border-color: #5865F2;">
                             <i class="bi bi-discord"></i> {{ trans('discord-login::messages.login.button') }}

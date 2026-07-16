@@ -6,6 +6,8 @@ return [
     'duplicate' => 'Ce compte Discord est déjà lié à un autre compte.',
     'email_mismatch' => "Connexion réussie. Attention : l'adresse e-mail de votre compte Discord ne correspond pas à celle de votre compte.",
     'password_login_disabled' => "Ce compte n'a pas de mot de passe défini : connectez-vous avec Discord.",
+    'guild_required' => 'Vous devez rejoindre notre serveur Discord avant de pouvoir vous connecter ou vous inscrire avec Discord.',
+    'guild_notice' => 'Vous devrez rejoindre notre serveur Discord pour lier votre compte.',
 
     'login' => [
         'button' => 'Se connecter avec Discord',
@@ -48,5 +50,10 @@ return [
         'no_password' => "Votre compte n'a pas de mot de passe défini. Vous pouvez en créer un ici pour pouvoir aussi vous connecter sans Discord.",
         'set_password' => 'Définir un mot de passe',
         'unlink_locked' => "Vous devez d'abord définir un mot de passe avant de pouvoir délier votre compte Discord, sinon vous ne pourriez plus vous connecter à votre compte.",
+    ],
+
+    'tools' => [
+        'recovery_dm' => "Bonjour ! Un administrateur de :site a généré un nouveau mot de passe pour votre compte :\n\n:password\n\nIl vous sera demandé de le changer lors de votre prochaine connexion avec celui-ci.",
+        'recovery_codes_dm' => "Bonjour ! Un administrateur de :site a régénéré vos codes de secours de double authentification. Vos anciens codes ne fonctionnent plus. Voici vos nouveaux codes — conservez-les en lieu sûr :\n\n:codes",
     ],
 ];
