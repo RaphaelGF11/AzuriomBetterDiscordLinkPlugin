@@ -1,9 +1,9 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Support;
+namespace Azuriom\Plugin\DiscordIntegration\Support;
 
 use Azuriom\Models\User;
-use Azuriom\Plugin\DiscordLogin\Models\RoleSync;
+use Azuriom\Plugin\DiscordIntegration\Models\RoleSync;
 use Azuriom\Plugin\Shop\Models\PaymentItem;
 use Azuriom\Plugin\Shop\Models\Subscription;
 use Illuminate\Support\Collection;

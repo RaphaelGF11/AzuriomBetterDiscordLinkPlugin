@@ -1,7 +1,15 @@
 <?php
 
 return [
+    'nav' => [
+        'configuration' => 'Configuration',
+        'authentication' => 'Authentification',
+        'roles' => 'Rôles',
+    ],
+
     'permission' => 'Gérer les paramètres de connexion Discord',
+    'enabled' => "Activer l'authentification Discord",
+    'enabled_help' => "Si désactivé, les boutons « Se connecter avec Discord » / « S'inscrire avec Discord » sont masqués et les routes correspondantes refusent de terminer une connexion ou une inscription, sans toucher aux identifiants configurés ci-dessous.",
     'allow_duplicates' => 'Autoriser les doublons de liaison Discord',
     'allow_duplicates_help' => "Si activé, un même compte Discord peut être lié à plusieurs comptes du site ; à la connexion, l'utilisateur choisira à quel compte se connecter. Si désactivé, la liaison est refusée si ce Discord est déjà lié à un autre compte.",
     'allow_passwordless' => 'Autoriser la création de comptes sans mot de passe',
@@ -22,6 +30,8 @@ return [
     'required_guild' => "Limiter aux membres d'un serveur",
     'required_guild_help' => "Si un ID de serveur est renseigné, se connecter ou s'inscrire avec Discord nécessite d'être membre de ce serveur — l'utilisateur y est automatiquement ajouté (son consentement à la permission « guilds.join » est demandé par Discord lui-même, sur l'écran d'autorisation) s'il n'en est pas déjà membre. Nécessite un token de bot ci-dessus, invité sur ce serveur avec la permission « Créer une invitation instantanée ». Laissez l'ID de serveur vide pour désactiver cette restriction.",
     'required_guild_id' => 'ID du serveur',
+    'no_required_guild' => 'Aucune restriction',
+    'unknown_guild' => 'Serveur inconnu (:id)',
     'bypass_maintenance' => 'Autoriser la connexion Discord pendant les maintenances',
     'bypass_maintenance_help' => "Si activé, la connexion via Discord reste possible même lorsque le mode maintenance est actif, sans nécessiter la permission d'accès à la maintenance. Si désactivé, elle suit les mêmes règles que la connexion classique.",
 
@@ -111,7 +121,7 @@ return [
 
     'info' => [
         'setup' => 'Ce plugin réutilise l\'application Discord configurée dans <a href=":url">Gestion des rôles &rarr; Lier les rôles avec Discord</a> (client ID / client secret). Configurez-la d\'abord là-bas si ce n\'est pas déjà fait.',
-        'redirect_intro' => 'Dans le <b>portail développeur Discord</b>, onglet <b>OAuth2</b> &rarr; <b>Général</b>, ajoutez en plus ces URLs dans les <b>Redirections</b> (en plus de celle du lien de profil) :',
+        'redirect_intro' => 'Dans le <b>portail développeur Discord</b>, onglet <b>OAuth2</b> &rarr; <b>Général</b>, ajoutez en plus cette URL dans les <b>Redirections</b> (en plus de celle du lien de profil) :',
     ],
 
     'test' => [
@@ -121,9 +131,8 @@ return [
         'bot_token_button' => 'Vérifier le token du bot',
         'bot_token_ok' => 'Le token du bot est valide.',
         'bot_token_invalid' => 'Le token du bot est manquant ou incorrect.',
-        'callback_button_login' => 'Tester le callback de connexion',
-        'callback_button_confirm' => 'Tester le callback de confirmation',
-        'callback_help' => "Ces boutons vous redirigent réellement vers Discord, en utilisant les deux URLs listées ci-dessus. Si vous revenez sur cette page avec un message de succès, cela confirme que l'URL testée est bien enregistrée. Si Discord affiche une erreur \"redirect_uri invalide\" avant même de vous demander de vous connecter, l'URL n'est pas (ou mal) enregistrée.",
+        'callback_button' => 'Tester le callback',
+        'callback_help' => "Ce bouton vous redirige réellement vers Discord, en utilisant l'URL listée ci-dessus. Si vous revenez sur cette page avec un message de succès, cela confirme que l'URL est bien enregistrée. Si Discord affiche une erreur \"redirect_uri invalide\" avant même de vous demander de vous connecter, l'URL n'est pas (ou mal) enregistrée.",
         'not_configured' => "Aucun client ID / secret Discord n'est configuré. Renseignez-les d'abord dans Gestion des rôles.",
         'network_error' => "Impossible de contacter l'API Discord. Réessayez plus tard.",
         'credentials_invalid' => 'Le client ID ou le client secret est incorrect.',

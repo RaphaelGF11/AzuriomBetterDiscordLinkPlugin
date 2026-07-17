@@ -1,6 +1,6 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Models;
+namespace Azuriom\Plugin\DiscordIntegration\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class RoleSync extends Model
 {
-    protected $table = 'discord_login_role_syncs';
+    protected $table = 'discord_integration_role_syncs';
 
     protected $fillable = [
         'discord_guild_id', 'discord_role_id', 'site_role_ids',

@@ -62,7 +62,7 @@
                     @if($enableDiscordLink)
                         @if($discordAccount !== null)
                             @if($discordLockedForUnlink)
-                                <button type="button" class="btn btn-danger" disabled title="{{ trans('discord-login::messages.profile.unlink_locked') }}">
+                                <button type="button" class="btn btn-danger" disabled title="{{ trans('discord-integration::messages.profile.unlink_locked') }}">
                                     <i class="bi bi-discord"></i>
                                     {{ trans('messages.profile.discord.unlink') }}
                                 </button>
@@ -86,7 +86,7 @@
 
                     @if($discordLockedForUnlink)
                         <div class="form-text mt-2">
-                            {{ trans('discord-login::messages.profile.unlink_locked') }}
+                            {{ trans('discord-integration::messages.profile.unlink_locked') }}
                         </div>
                     @endif
                 </div>

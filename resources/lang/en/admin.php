@@ -1,7 +1,15 @@
 <?php
 
 return [
+    'nav' => [
+        'configuration' => 'Configuration',
+        'authentication' => 'Authentication',
+        'roles' => 'Roles',
+    ],
+
     'permission' => 'Manage Discord login settings',
+    'enabled' => 'Enable Discord authentication',
+    'enabled_help' => 'If disabled, the "Log in with Discord" / "Sign up with Discord" buttons are hidden and the underlying routes refuse to complete a login or registration, without touching the configured credentials below.',
     'allow_duplicates' => 'Allow duplicate Discord links',
     'allow_duplicates_help' => "If enabled, the same Discord account can be linked to several site accounts; at login, the user will choose which account to log into. If disabled, linking is refused if that Discord is already linked to another account.",
     'allow_passwordless' => 'Allow passwordless account creation',
@@ -22,6 +30,8 @@ return [
     'required_guild' => 'Restrict to members of a server',
     'required_guild_help' => 'If a server ID is set, logging in or registering with Discord requires being a member of that server - the user is automatically added to it (their consent to the "guilds.join" permission is asked by Discord itself, on the authorization screen) if they aren\'t already a member. Requires a bot token above, invited to that server with the "Create Instant Invite" permission. Leave the server ID empty to disable this restriction.',
     'required_guild_id' => 'Server ID',
+    'no_required_guild' => 'No restriction',
+    'unknown_guild' => 'Unknown server (:id)',
     'bypass_maintenance' => 'Allow Discord login during maintenance',
     'bypass_maintenance_help' => 'If enabled, logging in with Discord stays possible even while maintenance mode is active, without requiring the maintenance access permission. If disabled, it follows the same rules as classic login.',
 
@@ -111,7 +121,7 @@ return [
 
     'info' => [
         'setup' => 'This plugin reuses the Discord application configured in <a href=":url">Roles management &rarr; Link roles with Discord</a> (client ID / client secret). Set it up there first if you haven\'t already.',
-        'redirect_intro' => 'In the <b>Discord developer portal</b>, under <b>OAuth2</b> &rarr; <b>General</b>, additionally add these URLs to the <b>Redirects</b> (on top of the profile link one):',
+        'redirect_intro' => 'In the <b>Discord developer portal</b>, under <b>OAuth2</b> &rarr; <b>General</b>, additionally add this URL to the <b>Redirects</b> (on top of the profile link one):',
     ],
 
     'test' => [
@@ -121,9 +131,8 @@ return [
         'bot_token_button' => 'Check bot token',
         'bot_token_ok' => 'The bot token is valid.',
         'bot_token_invalid' => 'The bot token is missing or incorrect.',
-        'callback_button_login' => 'Test the login callback',
-        'callback_button_confirm' => 'Test the confirmation callback',
-        'callback_help' => 'These buttons actually redirect you to Discord, using the two URLs listed above. If you come back to this page with a success message, that confirms the tested URL is registered. If Discord shows an "invalid redirect_uri" error before even asking you to log in, that URL is missing or wrong.',
+        'callback_button' => 'Test the callback',
+        'callback_help' => 'This button actually redirects you to Discord, using the URL listed above. If you come back to this page with a success message, that confirms the URL is registered. If Discord shows an "invalid redirect_uri" error before even asking you to log in, that URL is missing or wrong.',
         'not_configured' => 'No Discord client ID / secret is configured. Set them up in Roles management first.',
         'network_error' => 'Could not reach the Discord API. Try again later.',
         'credentials_invalid' => 'The client ID or client secret is incorrect.',

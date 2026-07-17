@@ -1,6 +1,6 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Support;
+namespace Azuriom\Plugin\DiscordIntegration\Support;
 
 class DiscordAvatar
 {

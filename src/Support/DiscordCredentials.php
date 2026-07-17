@@ -1,6 +1,6 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Support;
+namespace Azuriom\Plugin\DiscordIntegration\Support;
 
 /**
  * Resolves the Discord application credentials this plugin should use:
@@ -11,20 +11,20 @@ class DiscordCredentials
 {
     public static function useCustom(): bool
     {
-        return (bool) setting('discord-login.use_custom_credentials', false);
+        return (bool) setting('discord-integration.use_custom_credentials', false);
     }
 
     public static function clientId(): ?string
     {
         return static::useCustom()
-            ? setting('discord-login.client_id')
+            ? setting('discord-integration.client_id')
             : setting('discord.client_id');
     }
 
     public static function clientSecret(): ?string
     {
         return static::useCustom()
-            ? setting('discord-login.client_secret')
+            ? setting('discord-integration.client_secret')
             : setting('discord.client_secret');
     }
 
@@ -39,7 +39,7 @@ class DiscordCredentials
     public static function botToken(): ?string
     {
         return static::useCustom()
-            ? setting('discord-login.bot_token')
+            ? setting('discord-integration.bot_token')
             : setting('discord.token');
     }
 }

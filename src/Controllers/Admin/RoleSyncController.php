@@ -1,14 +1,33 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Controllers\Admin;
+namespace Azuriom\Plugin\DiscordIntegration\Controllers\Admin;
 
 use Azuriom\Http\Controllers\Controller;
-use Azuriom\Plugin\DiscordLogin\Models\RoleSync;
-use Azuriom\Plugin\DiscordLogin\Support\RoleSyncEvaluator;
+use Azuriom\Models\Role;
+use Azuriom\Plugin\DiscordIntegration\Models\RoleSync;
+use Azuriom\Plugin\DiscordIntegration\Support\DiscordBotClient;
+use Azuriom\Plugin\DiscordIntegration\Support\RoleSyncEvaluator;
+use Azuriom\Plugin\Shop\Models\Package;
 use Illuminate\Http\Request;
 
 class RoleSyncController extends Controller
 {
+    /**
+     * Show the plugin's Discord role sync rules.
+     */
+    public function index()
+    {
+        $botAvailable = DiscordBotClient::available();
+
+        return view('discord-integration::admin.roles', [
+            'botAvailable' => $botAvailable,
+            'guilds' => $botAvailable ? DiscordBotClient::guilds() : null,
+            'roleSyncs' => RoleSync::latest()->get(),
+            'siteRoles' => Role::orderByDesc('power')->get(),
+            'shopPackages' => class_exists(Package::class) ? Package::enabled()->get(['id', 'name']) : null,
+        ]);
+    }
+
     /**
      * Create a new role-sync rule and immediately reconcile every linked
      * user against it (rather than waiting for the next scheduled sweep -
@@ -22,7 +41,7 @@ class RoleSyncController extends Controller
 
         $evaluator->reconcileAll();
 
-        return to_route('discord-login.admin.settings')->with('success', trans('messages.status.success'));
+        return to_route('discord-integration.admin.roles')->with('success', trans('messages.status.success'));
     }
 
     /**
@@ -34,7 +53,7 @@ class RoleSyncController extends Controller
 
         $evaluator->reconcileAll();
 
-        return to_route('discord-login.admin.settings')->with('success', trans('messages.status.success'));
+        return to_route('discord-integration.admin.roles')->with('success', trans('messages.status.success'));
     }
 
     /**
@@ -46,7 +65,7 @@ class RoleSyncController extends Controller
     {
         $roleSync->delete();
 
-        return to_route('discord-login.admin.settings')->with('success', trans('messages.status.success'));
+        return to_route('discord-integration.admin.roles')->with('success', trans('messages.status.success'));
     }
 
     /**

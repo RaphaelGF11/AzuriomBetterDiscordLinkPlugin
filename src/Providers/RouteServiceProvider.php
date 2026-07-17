@@ -1,6 +1,6 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Providers;
+namespace Azuriom\Plugin\DiscordIntegration\Providers;
 
 use Azuriom\Extensions\Plugin\BaseRouteServiceProvider;
 use Illuminate\Support\Facades\Route;

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('discord_login_role_syncs', function (Blueprint $table) {
+        Schema::create('discord_integration_role_syncs', function (Blueprint $table) {
             $table->id();
             $table->string('discord_guild_id');
             $table->string('discord_role_id');
@@ -32,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('discord_login_role_syncs');
+        Schema::dropIfExists('discord_integration_role_syncs');
     }
 };

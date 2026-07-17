@@ -1,4 +1,4 @@
-# Discord Login
+# Discord Integration
 
 An [Azuriom](https://azuriom.com) plugin that adds login and registration via Discord, reusing the Discord account-linking system already built into the core (the one used by **Roles management → Link roles with Discord**) instead of building a separate one.
 
@@ -28,25 +28,24 @@ An [Azuriom](https://azuriom.com) plugin that adds login and registration via Di
 
 ## Installation
 
-1. Copy this repository into `plugins/discord-login` at the root of your Azuriom installation.
+1. Copy this repository into `plugins/discord-integration` at the root of your Azuriom installation.
 2. Enable the plugin from `/admin/plugins` (the required migrations run automatically).
-3. In the [Discord developer portal](https://discord.com/developers/applications), on the application already used for role linking, add these two extra redirect URLs (**OAuth2 → General** tab), on top of the one already there for the profile link:
-   - `https://your-site/discord-login/callback`
-   - `https://your-site/discord-login/confirm/callback`
+3. In the [Discord developer portal](https://discord.com/developers/applications), on the application already used for role linking, add this extra redirect URL (**OAuth2 → General** tab), on top of the one already there for the profile link:
+   - `https://your-site/discord-integration/callback`
 
-   These exact URLs (for your domain) are also shown directly on `/admin/discord-login/settings`.
+   This exact URL (for your domain) is also shown directly on `/admin/discord-integration/configuration`.
 4. If you plan to use the admin Discord tools, role sync, or server-restriction features, invite a Discord bot to your server(s) with the **Manage Roles** and **Create Instant Invite** permissions, and set its token in the plugin settings (or reuse the one already configured for Roles management).
 
 ## Configuration
 
-Everything is managed from `/admin/discord-login/settings`, including a full Discord role sync rule editor. Highlights:
+Everything is managed from the **Discord** admin menu (**Configuration**, **Authentication**, **Roles**), including a full Discord role sync rule editor. Highlights:
 
 - **Allow duplicate Discord links** (disabled by default): if enabled, the same Discord account can be linked to several site accounts.
 - **Allow passwordless account creation** (enabled by default).
 - **Use dedicated Discord credentials** (disabled by default): use a separate client ID/secret/bot token instead of the ones shared with Roles management.
 - **Allow a customizable registration email** / **Match accounts by email address** (both disabled by default, mutually exclusive with each other and with duplicate links).
 - **Sync avatar with Discord** (disabled by default).
-- **Restrict to members of a server** (disabled by default): set a server ID to enable it.
+- **Restrict to members of a server** (disabled by default): pick a server from the list (populated from the servers the bot is a member of) to enable it.
 - **Allow Discord login during maintenance** (enabled by default).
 
 ## Known limitation

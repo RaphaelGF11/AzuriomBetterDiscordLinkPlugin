@@ -1,6 +1,6 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Support;
+namespace Azuriom\Plugin\DiscordIntegration\Support;
 
 use Azuriom\Http\Middleware\CheckForMaintenanceSettings;
 use Closure;
@@ -18,7 +18,7 @@ class MaintenanceBypassMiddleware extends CheckForMaintenanceSettings
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->routeIs('discord-login.*') && setting('discord-login.bypass_maintenance', true)) {
+        if ($request->routeIs('discord-integration.*') && setting('discord-integration.bypass_maintenance', true)) {
             return $next($request);
         }
 

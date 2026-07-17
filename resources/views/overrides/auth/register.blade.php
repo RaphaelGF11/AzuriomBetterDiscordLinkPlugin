@@ -82,13 +82,13 @@
 
                     @if($discordGuildRestricted ?? false)
                         <div class="form-text mb-2">
-                            {{ trans('discord-login::messages.guild_notice') }}
+                            {{ trans('discord-integration::messages.guild_notice') }}
                         </div>
                     @endif
 
                     <div class="d-grid">
-                        <a href="{{ route('discord-login.redirect', ['intent' => 'register']) }}" class="btn btn-primary d-block" style="background-color: #5865F2; border-color: #5865F2;">
-                            <i class="bi bi-discord"></i> {{ trans('discord-login::messages.register.button') }}
+                        <a href="{{ route('discord-integration.redirect', ['intent' => 'register']) }}" class="btn btn-primary d-block" style="background-color: #5865F2; border-color: #5865F2;">
+                            <i class="bi bi-discord"></i> {{ trans('discord-integration::messages.register.button') }}
                         </a>
                     </div>
                 @endif

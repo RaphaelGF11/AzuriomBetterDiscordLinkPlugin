@@ -16,7 +16,7 @@ return new class extends Migration
             // (inverted), so it survives a forced admin unlink of a passwordless
             // account: the discord_accounts row is gone at that point, but the
             // account still needs to be recognized as unable to log in.
-            $table->boolean('discord_login_passwordless')->default(false)->after('password_changed_at');
+            $table->boolean('discord_integration_passwordless')->default(false)->after('password_changed_at');
         });
     }
 
@@ -26,7 +26,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('discord_login_passwordless');
+            $table->dropColumn('discord_integration_passwordless');
         });
     }
 };

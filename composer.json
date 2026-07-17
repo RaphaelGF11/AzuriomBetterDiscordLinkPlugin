@@ -1,11 +1,11 @@
 {
-    "name": "azuriom/discord-login",
+    "name": "azuriom/discord-integration",
     "type": "azuriom-plugin",
     "description": "Allows users to log in or register using their Discord account.",
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Azuriom\\Plugin\\DiscordLogin\\": "src/"
+            "Azuriom\\Plugin\\DiscordIntegration\\": "src/"
         }
     },
     "replace": {

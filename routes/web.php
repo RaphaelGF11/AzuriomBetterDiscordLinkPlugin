@@ -1,6 +1,6 @@
 <?php
 
-use Azuriom\Plugin\DiscordLogin\Controllers\DiscordLoginController;
+use Azuriom\Plugin\DiscordIntegration\Controllers\DiscordIntegrationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,37 +15,35 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Not guest-only: an authenticated admin needs to reach this to test the
-// callback (see DiscordLoginController::callback()). Already-authenticated,
-// non-test visits are redirected away from inside the controller instead.
-Route::get('/callback', [DiscordLoginController::class, 'callback'])
+// Not guest-only, and shared by both the login/registration flow and the
+// password-confirmation flow (see DiscordIntegrationController::callback()) -
+// a single redirect_uri to register on Discord's side is simpler than two.
+// Which flow applies, and whether the visitor needs to be a guest or
+// authenticated, is sorted out from inside the controller instead.
+Route::get('/callback', [DiscordIntegrationController::class, 'callback'])
     ->name('callback')
     ->middleware('throttle:6,1');
 
 Route::middleware('guest')->group(function () {
-    Route::get('/redirect', [DiscordLoginController::class, 'redirect'])->name('redirect');
+    Route::get('/redirect', [DiscordIntegrationController::class, 'redirect'])->name('redirect');
 
-    Route::get('/choose', [DiscordLoginController::class, 'showChoose'])->name('choose.show');
-    Route::post('/choose', [DiscordLoginController::class, 'chooseAccount'])->name('choose');
+    Route::get('/choose', [DiscordIntegrationController::class, 'showChoose'])->name('choose.show');
+    Route::post('/choose', [DiscordIntegrationController::class, 'chooseAccount'])->name('choose');
 
-    Route::get('/conflict', [DiscordLoginController::class, 'showConflict'])->name('conflict.show');
-    Route::post('/conflict/login', [DiscordLoginController::class, 'conflictLogin'])->name('conflict.login');
-    Route::post('/conflict/register', [DiscordLoginController::class, 'conflictRegister'])->name('conflict.register');
+    Route::get('/conflict', [DiscordIntegrationController::class, 'showConflict'])->name('conflict.show');
+    Route::post('/conflict/login', [DiscordIntegrationController::class, 'conflictLogin'])->name('conflict.login');
+    Route::post('/conflict/register', [DiscordIntegrationController::class, 'conflictRegister'])->name('conflict.register');
 
-    Route::get('/register', [DiscordLoginController::class, 'showRegister'])->name('register.show');
+    Route::get('/register', [DiscordIntegrationController::class, 'showRegister'])->name('register.show');
 
-    Route::post('/register', [DiscordLoginController::class, 'register'])
+    Route::post('/register', [DiscordIntegrationController::class, 'register'])
         ->name('register')
         ->middleware('captcha');
 });
 
 Route::middleware('auth')->group(function () {
-    Route::post('/bypass-2fa', [DiscordLoginController::class, 'toggleBypass2fa'])->name('bypass-2fa');
-    Route::post('/set-password', [DiscordLoginController::class, 'setPassword'])->name('set-password');
+    Route::post('/bypass-2fa', [DiscordIntegrationController::class, 'toggleBypass2fa'])->name('bypass-2fa');
+    Route::post('/set-password', [DiscordIntegrationController::class, 'setPassword'])->name('set-password');
 
-    Route::get('/confirm', [DiscordLoginController::class, 'redirectConfirm'])->name('confirm');
-
-    Route::get('/confirm/callback', [DiscordLoginController::class, 'confirmCallback'])
-        ->name('confirm.callback')
-        ->middleware('throttle:6,1');
+    Route::get('/confirm', [DiscordIntegrationController::class, 'redirectConfirm'])->name('confirm');
 });

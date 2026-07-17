@@ -1,6 +1,6 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Support;
+namespace Azuriom\Plugin\DiscordIntegration\Support;
 
 use Illuminate\Auth\EloquentUserProvider;
 use Illuminate\Contracts\Auth\Authenticatable as UserContract;
@@ -25,7 +25,7 @@ class DiscordOnlyAwareUserProvider extends EloquentUserProvider
 
         if ($account !== null && ! $account->has_custom_password) {
             throw ValidationException::withMessages([
-                'email' => trans('discord-login::messages.password_login_disabled'),
+                'email' => trans('discord-integration::messages.password_login_disabled'),
             ]);
         }
 

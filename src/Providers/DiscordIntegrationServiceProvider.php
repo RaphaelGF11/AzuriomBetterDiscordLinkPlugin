@@ -1,18 +1,18 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Providers;
+namespace Azuriom\Plugin\DiscordIntegration\Providers;
 
 use Azuriom\Extensions\Plugin\BasePluginServiceProvider;
 use Azuriom\Http\Middleware\CheckForMaintenanceSettings;
 use Azuriom\Models\DiscordAccount;
 use Azuriom\Models\Permission;
 use Azuriom\Models\User;
-use Azuriom\Plugin\DiscordLogin\Console\Commands\SyncDiscordRolesCommand;
-use Azuriom\Plugin\DiscordLogin\Support\DiscordCredentials;
-use Azuriom\Plugin\DiscordLogin\Support\DiscordLoginProfileCard;
-use Azuriom\Plugin\DiscordLogin\Support\DiscordOnlyAwareUserProvider;
-use Azuriom\Plugin\DiscordLogin\Support\MaintenanceBypassMiddleware;
-use Azuriom\Plugin\DiscordLogin\Support\RoleSyncEvaluator;
+use Azuriom\Plugin\DiscordIntegration\Console\Commands\SyncDiscordRolesCommand;
+use Azuriom\Plugin\DiscordIntegration\Support\DiscordCredentials;
+use Azuriom\Plugin\DiscordIntegration\Support\DiscordIntegrationProfileCard;
+use Azuriom\Plugin\DiscordIntegration\Support\DiscordOnlyAwareUserProvider;
+use Azuriom\Plugin\DiscordIntegration\Support\MaintenanceBypassMiddleware;
+use Azuriom\Plugin\DiscordIntegration\Support\RoleSyncEvaluator;
 use Azuriom\Socialite\DiscordProvider;
 use Azuriom\Support\Discord\LinkedRoles;
 use Illuminate\Console\Scheduling\Schedule;
@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\View;
 use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
 use Throwable;
 
-class DiscordLoginServiceProvider extends BasePluginServiceProvider
+class DiscordIntegrationServiceProvider extends BasePluginServiceProvider
 {
     /**
      * The plugin's global HTTP middleware stack.
@@ -71,7 +71,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
         $this->registerAdminNavigation();
 
         Permission::registerPermissions([
-            'discord-login.admin' => 'discord-login::admin.permission',
+            'discord-integration.admin' => 'discord-integration::admin.permission',
         ]);
 
         $this->registerDuplicateGuard();
@@ -106,11 +106,11 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     {
         $socialite = $this->app->make(SocialiteFactory::class);
 
-        $socialite->extend('discord-login', function () use ($socialite) {
+        $socialite->extend('discord-integration', function () use ($socialite) {
             return $socialite->buildProvider(DiscordProvider::class, [
                 'client_id' => DiscordCredentials::clientId(),
                 'client_secret' => DiscordCredentials::clientSecret(),
-                'redirect' => '/discord-login/callback',
+                'redirect' => '/discord-integration/callback',
             ]);
         });
     }
@@ -123,7 +123,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     protected function routeDescriptions()
     {
         return [
-            'discord-login.redirect' => trans('discord-login::messages.navbar'),
+            'discord-integration.redirect' => trans('discord-integration::messages.navbar'),
         ];
     }
 
@@ -135,11 +135,17 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     protected function adminNavigation()
     {
         return [
-            'discord-login' => [
-                'name' => trans('Discord Login'),
+            'discord-integration' => [
+                'name' => 'Discord',
                 'icon' => 'bi bi-discord',
-                'route' => 'discord-login.admin.settings',
-                'permission' => 'discord-login.admin',
+                'type' => 'dropdown',
+                'route' => 'discord-integration.admin.*',
+                'permission' => 'discord-integration.admin',
+                'items' => [
+                    'discord-integration.admin.configuration' => trans('discord-integration::admin.nav.configuration'),
+                    'discord-integration.admin.authentication' => trans('discord-integration::admin.nav.authentication'),
+                    'discord-integration.admin.roles' => trans('discord-integration::admin.nav.roles'),
+                ],
             ],
         ];
     }
@@ -172,7 +178,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
                 return;
             }
 
-            if (setting('discord-login.allow_duplicates', false)) {
+            if (setting('discord-integration.allow_duplicates', false)) {
                 return;
             }
 
@@ -182,7 +188,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
 
             if ($exists) {
                 throw new HttpResponseException(
-                    to_route('profile.index')->with('error', trans('discord-login::messages.duplicate'))
+                    to_route('profile.index')->with('error', trans('discord-integration::messages.duplicate'))
                 );
             }
         });
@@ -200,7 +206,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
         DiscordAccount::deleting(function (DiscordAccount $account) {
             if (! $account->has_custom_password) {
                 throw new HttpResponseException(
-                    to_route('profile.index')->with('error', trans('discord-login::messages.profile.unlink_locked'))
+                    to_route('profile.index')->with('error', trans('discord-integration::messages.profile.unlink_locked'))
                 );
             }
         });
@@ -244,11 +250,11 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
      */
     protected function registerPasswordLoginGuard(): void
     {
-        Auth::provider('discord-login-eloquent', function ($app, array $config) {
+        Auth::provider('discord-integration-eloquent', function ($app, array $config) {
             return new DiscordOnlyAwareUserProvider($app['hash'], $config['model']);
         });
 
-        config(['auth.providers.users.driver' => 'discord-login-eloquent']);
+        config(['auth.providers.users.driver' => 'discord-integration-eloquent']);
     }
 
     /**
@@ -260,7 +266,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
      * treated as passwordless everywhere else (login guard, unlink guard,
      * profile views).
      *
-     * Also clears users.discord_login_passwordless, the flag that survives a
+     * Also clears users.discord_integration_passwordless, the flag that survives a
      * forced admin unlink of a passwordless account (see
      * Admin\UserController::forceUnlinkDiscord()) after its discord_accounts
      * row is gone - saved quietly to avoid re-triggering this same listener.
@@ -272,8 +278,8 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
                 return;
             }
 
-            if ($user->discord_login_passwordless) {
-                $user->forceFill(['discord_login_passwordless' => false])->saveQuietly();
+            if ($user->discord_integration_passwordless) {
+                $user->forceFill(['discord_integration_passwordless' => false])->saveQuietly();
             }
 
             $account = $user->discordAccount;
@@ -285,7 +291,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     }
 
     /**
-     * Mirror users.discord_login_passwordless onto any *new* discord_accounts
+     * Mirror users.discord_integration_passwordless onto any *new* discord_accounts
      * row's has_custom_password, in the other direction from registerPasswordSync()
      * above.
      *
@@ -308,7 +314,7 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     protected function registerLinkPasswordSync(): void
     {
         DiscordAccount::creating(function (DiscordAccount $account) {
-            if ($account->user?->discord_login_passwordless) {
+            if ($account->user?->discord_integration_passwordless) {
                 $account->has_custom_password = false;
             }
         });
@@ -372,10 +378,10 @@ class DiscordLoginServiceProvider extends BasePluginServiceProvider
     protected function registerViewComposers(): void
     {
         View::composer(['auth.login', 'auth.register'], function ($view) {
-            $view->with('discordLoginEnabled', DiscordCredentials::clientId() !== null);
-            $view->with('discordGuildRestricted', setting('discord-login.required_guild_id') !== null);
+            $view->with('discordLoginEnabled', setting('discord-integration.enabled', true) && DiscordCredentials::clientId() !== null);
+            $view->with('discordGuildRestricted', setting('discord-integration.required_guild_id') !== null);
         });
 
-        View::composer('profile.index', DiscordLoginProfileCard::class);
+        View::composer('profile.index', DiscordIntegrationProfileCard::class);
     }
 }

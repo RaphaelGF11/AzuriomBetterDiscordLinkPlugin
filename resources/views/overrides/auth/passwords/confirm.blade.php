@@ -15,11 +15,11 @@
         <div class="card">
             <div class="card-body">
                 @if($confirmViaDiscord)
-                    <p>{{ trans('discord-login::messages.confirm.description') }}</p>
+                    <p>{{ trans('discord-integration::messages.confirm.description') }}</p>
 
                     <div class="d-grid mb-3">
-                        <a href="{{ route('discord-login.confirm') }}" class="btn btn-primary d-block" style="background-color: #5865F2; border-color: #5865F2;">
-                            <i class="bi bi-discord"></i> {{ trans('discord-login::messages.confirm.button') }}
+                        <a href="{{ route('discord-integration.confirm') }}" class="btn btn-primary d-block" style="background-color: #5865F2; border-color: #5865F2;">
+                            <i class="bi bi-discord"></i> {{ trans('discord-integration::messages.confirm.button') }}
                         </a>
                     </div>
                 @else

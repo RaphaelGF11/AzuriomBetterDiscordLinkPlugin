@@ -1,14 +1,14 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Controllers;
+namespace Azuriom\Plugin\DiscordIntegration\Controllers;
 
 use Azuriom\Http\Controllers\Controller;
 use Azuriom\Models\ActionLog;
 use Azuriom\Models\DiscordAccount;
 use Azuriom\Models\User;
-use Azuriom\Plugin\DiscordLogin\Support\DiscordAvatar;
-use Azuriom\Plugin\DiscordLogin\Support\DiscordBotClient;
-use Azuriom\Plugin\DiscordLogin\Support\DiscordCredentials;
+use Azuriom\Plugin\DiscordIntegration\Support\DiscordAvatar;
+use Azuriom\Plugin\DiscordIntegration\Support\DiscordBotClient;
+use Azuriom\Plugin\DiscordIntegration\Support\DiscordCredentials;
 use Azuriom\Rules\GameAuth;
 use Azuriom\Rules\Username;
 use Illuminate\Auth\Events\Registered;
@@ -24,7 +24,7 @@ use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
-class DiscordLoginController extends Controller
+class DiscordIntegrationController extends Controller
 {
     /**
      * How long a pending Discord login/registration stays valid in session, in seconds.
@@ -37,32 +37,56 @@ class DiscordLoginController extends Controller
     public function redirect(Request $request)
     {
         abort_if(DiscordCredentials::clientId() === null, 404);
+        abort_if(! setting('discord-integration.enabled', true), 404);
 
         $intent = $request->query('intent') === 'register' ? 'register' : 'login';
 
-        $request->session()->put('discord-login.intent', $intent);
+        // Mirrors core's own registration toggle (setting('register'), see
+        // admin/settings/auth "Enable user registration"): its route simply
+        // doesn't exist when disabled (Auth::routes(['register' => ...]) in
+        // routes/web.php), so an explicit "Sign up with Discord" attempt 404s
+        // the same way here instead of silently creating an account anyway.
+        abort_if($intent === 'register' && ! setting('register', true), 404);
+
+        $request->session()->put('discord-integration.intent', $intent);
 
         return $this->driver()->redirect();
     }
 
     /**
-     * Handle the Discord OAuth callback for login/registration.
+     * Handle the single Discord OAuth callback, shared by the login/registration
+     * flow (redirect()) and the password-confirmation flow (redirectConfirm()) -
+     * one redirect_uri is simpler to register on Discord's side than two. Which
+     * flow to run is decided by the "intent" stashed in session right before
+     * leaving for Discord, since that's the only thing distinguishing an
+     * otherwise identical callback request.
      */
     public function callback(Request $request): Response
     {
         abort_if(DiscordCredentials::clientId() === null, 404);
 
-        if ($request->session()->pull('discord-login.admin_test', false)) {
+        if ($request->session()->pull('discord-integration.admin_test', false)) {
             return $this->handleAdminTest();
         }
+
+        $intent = $request->session()->pull('discord-integration.intent', 'login');
+
+        if ($intent === 'confirm') {
+            return $this->handleConfirm($request);
+        }
+
+        // Only gates the login/registration flow, not the admin test above or
+        // the password-confirmation flow: an account with no password already
+        // relies on "Confirm with Discord" as its only way to confirm identity
+        // (see overrides/auth/passwords/confirm.blade.php), so it stays usable
+        // even while new Discord logins are turned off.
+        abort_if(! setting('discord-integration.enabled', true), 404);
 
         // Not guest-only at the route level (see routes/web.php), so an already
         // authenticated, non-test visit is redirected away here instead.
         if (Auth::check()) {
             return to_route('home');
         }
-
-        $intent = $request->session()->pull('discord-login.intent', 'login');
 
         $discordUser = $this->driver()->user();
 
@@ -86,13 +110,13 @@ class DiscordLoginController extends Controller
             // used" behavior instead of silently logging into someone's account.
             if ($intent === 'login'
                 && $discordEmail !== null
-                && setting('discord-login.match_by_email', false)
+                && setting('discord-integration.match_by_email', false)
                 // Kept mutually exclusive with duplicate links and a customizable
-                // registration email (see Admin\SettingsController::save()); this
-                // check is a defensive fallback in case settings ever drift out
+                // registration email (see Admin\AuthenticationController::save());
+                // this check is a defensive fallback in case settings ever drift out
                 // of sync with each other (e.g. edited directly in the database).
-                && ! setting('discord-login.allow_duplicates', false)
-                && ! setting('discord-login.customizable_email', false)) {
+                && ! setting('discord-integration.allow_duplicates', false)
+                && ! setting('discord-integration.customizable_email', false)) {
                 $user = User::firstWhere('email', $discordEmail);
 
                 if ($user !== null) {
@@ -100,7 +124,16 @@ class DiscordLoginController extends Controller
                 }
             }
 
-            $request->session()->put('discord-login.pending', [
+            // No linked account and no email match: reaching this point always
+            // means creating a new account next (see register()), even when the
+            // user clicked "Log in with Discord" rather than "Sign up" - so this
+            // is where core's registration toggle has to be enforced, not just
+            // on an explicit register intent (see redirect() above).
+            if (! setting('register', true)) {
+                return to_route('login')->with('error', trans('discord-integration::messages.registration_disabled'));
+            }
+
+            $request->session()->put('discord-integration.pending', [
                 'id' => $discordUser->getId(),
                 'username' => $discordUser->getNickname() ?? $discordUser->getName(),
                 'email' => $discordEmail,
@@ -113,13 +146,13 @@ class DiscordLoginController extends Controller
                 'duplicate' => false,
             ]);
 
-            return to_route('discord-login.register.show');
+            return to_route('discord-integration.register.show');
         }
 
         // The user clicked "Sign up with Discord" but this Discord is already linked
         // to an account: don't silently log them in, ask what they want to do instead.
         if ($intent === 'register') {
-            $request->session()->put('discord-login.conflict', [
+            $request->session()->put('discord-integration.conflict', [
                 'discord_user_id' => $discordUser->getId(),
                 'username' => $discordUser->getNickname() ?? $discordUser->getName(),
                 'user_ids' => $accounts->pluck('user_id')->all(),
@@ -132,7 +165,7 @@ class DiscordLoginController extends Controller
                 'created_at' => now()->timestamp,
             ]);
 
-            return to_route('discord-login.conflict.show');
+            return to_route('discord-integration.conflict.show');
         }
 
         if ($accounts->count() === 1) {
@@ -147,7 +180,7 @@ class DiscordLoginController extends Controller
             return $this->loginAccount($request, $account, $discordEmail, $this->avatarData($discordUser));
         }
 
-        $request->session()->put('discord-login.choice', [
+        $request->session()->put('discord-integration.choice', [
             'discord_user_id' => $discordUser->getId(),
             'user_ids' => $accounts->pluck('user_id')->all(),
             'avatar' => Arr::get($discordUser->getRaw(), 'avatar'),
@@ -159,7 +192,7 @@ class DiscordLoginController extends Controller
             'created_at' => now()->timestamp,
         ]);
 
-        return to_route('discord-login.choose.show');
+        return to_route('discord-integration.choose.show');
     }
 
     /**
@@ -167,14 +200,14 @@ class DiscordLoginController extends Controller
      */
     public function showConflict(Request $request)
     {
-        $conflict = $this->pending($request, 'discord-login.conflict');
+        $conflict = $this->pending($request, 'discord-integration.conflict');
 
         if ($conflict === null) {
             return to_route('login');
         }
 
-        return view('discord-login::conflict', [
-            'allowDuplicates' => setting('discord-login.allow_duplicates', false),
+        return view('discord-integration::conflict', [
+            'allowDuplicates' => setting('discord-integration.allow_duplicates', false),
         ]);
     }
 
@@ -183,13 +216,13 @@ class DiscordLoginController extends Controller
      */
     public function conflictLogin(Request $request): Response
     {
-        $conflict = $this->pending($request, 'discord-login.conflict');
+        $conflict = $this->pending($request, 'discord-integration.conflict');
 
         if ($conflict === null) {
             return to_route('login');
         }
 
-        $request->session()->forget('discord-login.conflict');
+        $request->session()->forget('discord-integration.conflict');
 
         if (count($conflict['user_ids']) === 1) {
             $account = DiscordAccount::where('discord_user_id', $conflict['discord_user_id'])
@@ -209,9 +242,9 @@ class DiscordLoginController extends Controller
             ]);
         }
 
-        $request->session()->put('discord-login.choice', Arr::except($conflict, ['username']));
+        $request->session()->put('discord-integration.choice', Arr::except($conflict, ['username']));
 
-        return to_route('discord-login.choose.show');
+        return to_route('discord-integration.choose.show');
     }
 
     /**
@@ -220,17 +253,18 @@ class DiscordLoginController extends Controller
      */
     public function conflictRegister(Request $request)
     {
-        abort_if(! setting('discord-login.allow_duplicates', false), 403);
+        abort_if(! setting('discord-integration.allow_duplicates', false), 403);
+        abort_if(! setting('register', true), 403);
 
-        $conflict = $this->pending($request, 'discord-login.conflict');
+        $conflict = $this->pending($request, 'discord-integration.conflict');
 
         if ($conflict === null) {
             return to_route('login');
         }
 
-        $request->session()->forget('discord-login.conflict');
+        $request->session()->forget('discord-integration.conflict');
 
-        $request->session()->put('discord-login.pending', [
+        $request->session()->put('discord-integration.pending', [
             'id' => $conflict['discord_user_id'],
             'username' => $conflict['username'],
             'email' => $conflict['email'],
@@ -243,7 +277,7 @@ class DiscordLoginController extends Controller
             'duplicate' => true,
         ]);
 
-        return to_route('discord-login.register.show');
+        return to_route('discord-integration.register.show');
     }
 
     /**
@@ -251,13 +285,13 @@ class DiscordLoginController extends Controller
      */
     public function showChoose(Request $request)
     {
-        $choice = $this->pending($request, 'discord-login.choice');
+        $choice = $this->pending($request, 'discord-integration.choice');
 
         if ($choice === null) {
             return to_route('login');
         }
 
-        return view('discord-login::choose', [
+        return view('discord-integration::choose', [
             'users' => User::whereIn('id', $choice['user_ids'])->get(),
         ]);
     }
@@ -267,7 +301,7 @@ class DiscordLoginController extends Controller
      */
     public function chooseAccount(Request $request): Response
     {
-        $choice = $this->pending($request, 'discord-login.choice');
+        $choice = $this->pending($request, 'discord-integration.choice');
 
         if ($choice === null) {
             return to_route('login');
@@ -287,7 +321,7 @@ class DiscordLoginController extends Controller
             'expires_at' => now()->addSeconds($choice['expires_in']),
         ])->save();
 
-        $request->session()->forget('discord-login.choice');
+        $request->session()->forget('discord-integration.choice');
 
         return $this->loginAccount($request, $account, $choice['email'], [
             'id' => $choice['discord_user_id'],
@@ -301,18 +335,21 @@ class DiscordLoginController extends Controller
      */
     public function showRegister(Request $request)
     {
-        $pending = $this->pending($request, 'discord-login.pending');
+        $pending = $this->pending($request, 'discord-integration.pending');
 
-        if ($pending === null) {
+        // Defense in depth: callback() and conflictRegister() already refuse to
+        // start a pending registration while disabled, but registration could
+        // have been turned off after a pending one was stashed in session.
+        if ($pending === null || ! setting('register', true)) {
             return to_route('login');
         }
 
-        return view('discord-login::register', [
+        return view('discord-integration::register', [
             'defaultName' => $pending['username'],
             'discordEmail' => $pending['email'],
-            'customizableEmail' => setting('discord-login.customizable_email', false),
+            'customizableEmail' => setting('discord-integration.customizable_email', false),
             'duplicate' => $pending['duplicate'] ?? false,
-            'passwordRequired' => ! setting('discord-login.allow_passwordless', true),
+            'passwordRequired' => ! setting('discord-integration.allow_passwordless', true),
         ]);
     }
 
@@ -323,14 +360,15 @@ class DiscordLoginController extends Controller
      */
     public function register(Request $request): Response
     {
-        $pending = $this->pending($request, 'discord-login.pending');
+        $pending = $this->pending($request, 'discord-integration.pending');
 
-        if ($pending === null) {
+        // Same defense in depth as showRegister() above.
+        if ($pending === null || ! setting('register', true)) {
             return to_route('login');
         }
 
-        $customizableEmail = setting('discord-login.customizable_email', false);
-        $passwordRequired = ! setting('discord-login.allow_passwordless', true);
+        $customizableEmail = setting('discord-integration.customizable_email', false);
+        $passwordRequired = ! setting('discord-integration.allow_passwordless', true);
 
         if ($customizableEmail) {
             $data = $this->validate($request, [
@@ -343,7 +381,7 @@ class DiscordLoginController extends Controller
         } else {
             if ($pending['email'] !== null && User::where('email', $pending['email'])->exists()) {
                 throw ValidationException::withMessages([
-                    'name' => trans('discord-login::messages.register.email_used'),
+                    'name' => trans('discord-integration::messages.register.email_used'),
                 ]);
             }
 
@@ -371,13 +409,13 @@ class DiscordLoginController extends Controller
                 'name' => $data['name'],
                 'email' => $email,
                 'email_verified_at' => $emailVerified ? now() : null,
-                'avatar' => setting('discord-login.sync_avatar', false) ? DiscordAvatar::urlFrom([
+                'avatar' => setting('discord-integration.sync_avatar', false) ? DiscordAvatar::urlFrom([
                     'id' => $pending['id'],
                     'avatar' => $pending['avatar'] ?? null,
                     'discriminator' => $pending['discriminator'] ?? null,
                 ]) : null,
                 'password' => $password ?? Str::random(128),
-                'discord_login_passwordless' => $password === null,
+                'discord_integration_passwordless' => $password === null,
                 'game_id' => game()->getUserUniqueId($data['name']),
                 'last_login_ip' => $request->ip(),
                 'last_login_at' => now(),
@@ -399,7 +437,7 @@ class DiscordLoginController extends Controller
 
         event(new Registered($user));
 
-        $request->session()->forget('discord-login.pending');
+        $request->session()->forget('discord-integration.pending');
 
         Auth::login($user);
 
@@ -471,33 +509,38 @@ class DiscordLoginController extends Controller
         // password confirmation; accounts with one must confirm with it.
         abort_if($account === null || $account->has_custom_password, 404);
 
-        return Socialite::driver('discord-login')
+        $request->session()->put('discord-integration.intent', 'confirm');
+
+        return Socialite::driver('discord-integration')
             ->scopes(['identify'])
-            ->redirectUrl(route('discord-login.confirm.callback'))
+            ->redirectUrl(route('discord-integration.callback'))
             ->redirect();
     }
 
     /**
      * Handle the Discord confirmation callback, standing in for a password
-     * confirmation (Illuminate\Auth\Middleware\RequirePassword).
+     * confirmation (Illuminate\Auth\Middleware\RequirePassword). Reached
+     * through the shared callback() above when intent is "confirm", so this
+     * isn't behind the 'auth' middleware like the rest of the confirm flow -
+     * check the user manually instead of assuming one is present.
      */
-    public function confirmCallback(Request $request): Response
+    protected function handleConfirm(Request $request): Response
     {
-        if ($request->session()->pull('discord-login.admin_test', false)) {
-            return $this->handleAdminTest();
+        if (! Auth::check()) {
+            return to_route('login');
         }
 
         $account = $request->user()->discordAccount;
 
         abort_if($account === null || $account->has_custom_password, 404);
 
-        $discordUser = Socialite::driver('discord-login')
+        $discordUser = Socialite::driver('discord-integration')
             ->scopes(['identify'])
-            ->redirectUrl(route('discord-login.confirm.callback'))
+            ->redirectUrl(route('discord-integration.callback'))
             ->user();
 
         if ((string) $discordUser->getId() !== (string) $account->discord_user_id) {
-            return to_route('password.confirm')->with('error', trans('discord-login::messages.confirm.mismatch'));
+            return to_route('password.confirm')->with('error', trans('discord-integration::messages.confirm.mismatch'));
         }
 
         $request->session()->put('auth.password_confirmed_at', time());
@@ -515,13 +558,13 @@ class DiscordLoginController extends Controller
     {
         $scopes = ['identify', 'email'];
 
-        if (setting('discord-login.required_guild_id') !== null) {
+        if (setting('discord-integration.required_guild_id') !== null) {
             $scopes[] = 'guilds.join';
         }
 
-        return Socialite::driver('discord-login')
+        return Socialite::driver('discord-integration')
             ->scopes($scopes)
-            ->redirectUrl(route('discord-login.callback'));
+            ->redirectUrl(route('discord-integration.callback'));
     }
 
     /**
@@ -535,7 +578,7 @@ class DiscordLoginController extends Controller
      */
     protected function ensureGuildMembership($discordUser): ?Response
     {
-        $guildId = setting('discord-login.required_guild_id');
+        $guildId = setting('discord-integration.required_guild_id');
 
         if ($guildId === null) {
             return null;
@@ -552,29 +595,28 @@ class DiscordLoginController extends Controller
             return null;
         }
 
-        return to_route('login')->with('error', trans('discord-login::messages.guild_required'));
+        return to_route('login')->with('error', trans('discord-integration::messages.guild_required'));
     }
 
     /**
      * Handle a request initiated from the admin "test configuration" button
-     * (see Admin\SettingsController::testCallback()): reaching this code at all,
-     * on either of the plugin's two real callback URLs, proves Discord accepted
-     * them as registered redirect URIs.
+     * (see Admin\ConfigurationController::testCallback()): reaching this code
+     * at all proves Discord accepted the callback URL as a registered redirect URI.
      */
     protected function handleAdminTest(): Response
     {
         try {
-            $discordUser = Socialite::driver('discord-login')
+            $discordUser = Socialite::driver('discord-integration')
                 ->scopes(['identify'])
                 ->redirectUrl(url()->current())
                 ->user();
         } catch (Throwable $e) {
-            return to_route('discord-login.admin.settings')
-                ->with('error', trans('discord-login::admin.test.callback_failed'));
+            return to_route('discord-integration.admin.configuration')
+                ->with('error', trans('discord-integration::admin.test.callback_failed'));
         }
 
-        return to_route('discord-login.admin.settings')->with('success', trans(
-            'discord-login::admin.test.callback_ok',
+        return to_route('discord-integration.admin.configuration')->with('success', trans(
+            'discord-integration::admin.test.callback_ok',
             ['name' => $discordUser->getNickname() ?? $discordUser->getName()]
         ));
     }
@@ -650,7 +692,7 @@ class DiscordLoginController extends Controller
             'last_login_at' => now(),
         ];
 
-        if (setting('discord-login.sync_avatar', false) && $discordAvatarData !== []) {
+        if (setting('discord-integration.sync_avatar', false) && $discordAvatarData !== []) {
             $attributes['avatar'] = DiscordAvatar::urlFrom($discordAvatarData);
         }
 
@@ -665,7 +707,7 @@ class DiscordLoginController extends Controller
         // email mismatch is surfaced as the login's success message rather than
         // blocking the login (as requested: warn, but let the user in).
         $message = ($discordEmail !== null && $discordEmail !== $user->email)
-            ? trans('discord-login::messages.email_mismatch')
+            ? trans('discord-integration::messages.email_mismatch')
             : trans('messages.status.success');
 
         return to_route('home')->with('success', $message);
@@ -691,7 +733,7 @@ class DiscordLoginController extends Controller
             return false;
         }
 
-        if (setting('discord-login.bypass_maintenance', true)) {
+        if (setting('discord-integration.bypass_maintenance', true)) {
             return false;
         }
 

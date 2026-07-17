@@ -1,8 +1,9 @@
 <?php
 
-use Azuriom\Plugin\DiscordLogin\Controllers\Admin\RoleSyncController;
-use Azuriom\Plugin\DiscordLogin\Controllers\Admin\SettingsController;
-use Azuriom\Plugin\DiscordLogin\Controllers\Admin\UserController;
+use Azuriom\Plugin\DiscordIntegration\Controllers\Admin\AuthenticationController;
+use Azuriom\Plugin\DiscordIntegration\Controllers\Admin\ConfigurationController;
+use Azuriom\Plugin\DiscordIntegration\Controllers\Admin\RoleSyncController;
+use Azuriom\Plugin\DiscordIntegration\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,18 +18,26 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('can:discord-login.admin')->group(function () {
-    Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
-    Route::post('/settings', [SettingsController::class, 'save'])->name('settings.save');
+Route::middleware('can:discord-integration.admin')->group(function () {
+    Route::get('/configuration', [ConfigurationController::class, 'show'])->name('configuration');
+    Route::post('/configuration', [ConfigurationController::class, 'save'])->name('configuration.save');
 
-    Route::post('/settings/test-credentials', [SettingsController::class, 'testCredentials'])
-        ->name('settings.test-credentials');
+    Route::post('/configuration/test-credentials', [ConfigurationController::class, 'testCredentials'])
+        ->name('configuration.test-credentials');
 
-    Route::post('/settings/test-bot-token', [SettingsController::class, 'testBotToken'])
-        ->name('settings.test-bot-token');
+    Route::post('/configuration/test-bot-token', [ConfigurationController::class, 'testBotToken'])
+        ->name('configuration.test-bot-token');
 
-    Route::get('/settings/test-callback', [SettingsController::class, 'testCallback'])
-        ->name('settings.test-callback');
+    Route::get('/configuration/test-callback', [ConfigurationController::class, 'testCallback'])
+        ->name('configuration.test-callback');
+
+    Route::get('/authentication', [AuthenticationController::class, 'show'])->name('authentication');
+    Route::post('/authentication', [AuthenticationController::class, 'save'])->name('authentication.save');
+
+    Route::get('/roles', [RoleSyncController::class, 'index'])->name('roles');
+    Route::post('/roles', [RoleSyncController::class, 'store'])->name('roles.store');
+    Route::put('/roles/{roleSync}', [RoleSyncController::class, 'update'])->name('roles.update');
+    Route::delete('/roles/{roleSync}', [RoleSyncController::class, 'destroy'])->name('roles.destroy');
 
     Route::post('/users/{user}/force-unlink', [UserController::class, 'forceUnlinkDiscord'])
         ->name('users.force-unlink')
@@ -49,8 +58,4 @@ Route::middleware('can:discord-login.admin')->group(function () {
     Route::post('/users/{user}/send-2fa-recovery-codes', [UserController::class, 'send2faRecoveryCodes'])
         ->name('users.send-2fa-recovery-codes')
         ->middleware('captcha');
-
-    Route::post('/role-sync', [RoleSyncController::class, 'store'])->name('role-sync.store');
-    Route::put('/role-sync/{roleSync}', [RoleSyncController::class, 'update'])->name('role-sync.update');
-    Route::delete('/role-sync/{roleSync}', [RoleSyncController::class, 'destroy'])->name('role-sync.destroy');
 });

@@ -7,6 +7,7 @@ return [
     'email_mismatch' => "Connexion réussie. Attention : l'adresse e-mail de votre compte Discord ne correspond pas à celle de votre compte.",
     'password_login_disabled' => "Ce compte n'a pas de mot de passe défini : connectez-vous avec Discord.",
     'guild_required' => 'Vous devez rejoindre notre serveur Discord avant de pouvoir vous connecter ou vous inscrire avec Discord.',
+    'registration_disabled' => "Les inscriptions sont actuellement désactivées.",
     'guild_notice' => 'Vous devrez rejoindre notre serveur Discord pour lier votre compte.',
 
     'login' => [

@@ -7,6 +7,7 @@ return [
     'email_mismatch' => "Login successful. Warning: your Discord account's email address does not match your account's email.",
     'password_login_disabled' => 'This account has no password set: log in with Discord instead.',
     'guild_required' => 'You need to join our Discord server before you can log in or register with Discord.',
+    'registration_disabled' => 'Registration is currently disabled.',
     'guild_notice' => 'You will need to join our Discord server to link your account.',
 
     'login' => [

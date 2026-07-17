@@ -5,11 +5,11 @@
 @section('content')
     @if($user->discordAccount !== null && ! $user->discordAccount->has_custom_password)
         <div class="alert alert-warning" role="alert">
-            <i class="bi bi-exclamation-triangle"></i> {{ trans('discord-login::admin.users.no_password_warning') }}
+            <i class="bi bi-exclamation-triangle"></i> {{ trans('discord-integration::admin.users.no_password_warning') }}
         </div>
-    @elseif($user->discordAccount === null && $user->discord_login_passwordless)
+    @elseif($user->discordAccount === null && $user->discord_integration_passwordless)
         <div class="alert alert-danger" role="alert">
-            <i class="bi bi-exclamation-triangle"></i> {{ trans('discord-login::admin.users.no_password_error') }}
+            <i class="bi bi-exclamation-triangle"></i> {{ trans('discord-integration::admin.users.no_password_error') }}
         </div>
     @endif
 
@@ -258,7 +258,7 @@
                                     <input type="text" class="form-control" id="discordInput" value="{{ $user->discordAccount->name }}" disabled>
 
                                     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#forceUnlinkModal">
-                                        {{ trans('discord-login::admin.force_unlink.button') }}
+                                        {{ trans('discord-integration::admin.force_unlink.button') }}
                                     </button>
                                 </div>
                             @endif
@@ -272,29 +272,29 @@
     @if($user->discordAccount !== null)
         <div class="card shadow mb-4">
             <div class="card-header">
-                <h5 class="card-title mb-0">{{ trans('discord-login::admin.tools.title') }}</h5>
+                <h5 class="card-title mb-0">{{ trans('discord-integration::admin.tools.title') }}</h5>
             </div>
             <div class="card-body">
                 <button type="button" class="btn btn-outline-secondary me-2 mb-2" data-bs-toggle="modal" data-bs-target="#refreshInfoModal">
-                    <i class="bi bi-arrow-repeat"></i> {{ trans('discord-login::admin.tools.refresh.button') }}
+                    <i class="bi bi-arrow-repeat"></i> {{ trans('discord-integration::admin.tools.refresh.button') }}
                 </button>
 
-                @if(\Azuriom\Plugin\DiscordLogin\Support\DiscordBotClient::available())
+                @if(\Azuriom\Plugin\DiscordIntegration\Support\DiscordBotClient::available())
                     <button type="button" class="btn btn-outline-primary me-2 mb-2" data-bs-toggle="modal" data-bs-target="#sendDmModal">
-                        <i class="bi bi-envelope"></i> {{ trans('discord-login::admin.tools.dm.button') }}
+                        <i class="bi bi-envelope"></i> {{ trans('discord-integration::admin.tools.dm.button') }}
                     </button>
 
                     <button type="button" class="btn btn-outline-warning me-2 mb-2" data-bs-toggle="modal" data-bs-target="#recoveryPasswordModal">
-                        <i class="bi bi-key"></i> {{ trans('discord-login::admin.tools.recovery_password.button') }}
+                        <i class="bi bi-key"></i> {{ trans('discord-integration::admin.tools.recovery_password.button') }}
                     </button>
 
                     @if($user->hasTwoFactorAuth())
                         <button type="button" class="btn btn-outline-danger me-2 mb-2" data-bs-toggle="modal" data-bs-target="#recoveryCodesModal">
-                            <i class="bi bi-shield-lock"></i> {{ trans('discord-login::admin.tools.recovery_codes.button') }}
+                            <i class="bi bi-shield-lock"></i> {{ trans('discord-integration::admin.tools.recovery_codes.button') }}
                         </button>
                     @endif
                 @else
-                    <div class="form-text mt-2">{{ trans('discord-login::admin.tools.bot_unavailable') }}</div>
+                    <div class="form-text mt-2">{{ trans('discord-integration::admin.tools.bot_unavailable') }}</div>
                 @endif
             </div>
         </div>
@@ -343,14 +343,14 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2 class="modal-title text-danger" id="forceUnlinkLabel">
-                            <i class="bi bi-exclamation-triangle"></i> {{ trans('discord-login::admin.force_unlink.title') }}
+                            <i class="bi bi-exclamation-triangle"></i> {{ trans('discord-integration::admin.force_unlink.title') }}
                         </h2>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>{{ trans('discord-login::admin.force_unlink.warning') }}</p>
+                        <p>{{ trans('discord-integration::admin.force_unlink.warning') }}</p>
 
-                        <form method="POST" action="{{ route('discord-login.admin.users.force-unlink', $user) }}" id="captcha-form">
+                        <form method="POST" action="{{ route('discord-integration.admin.users.force-unlink', $user) }}" id="captcha-form">
                             @csrf
 
                             @include('elements.captcha', ['center' => true])
@@ -361,7 +361,7 @@
                                 </button>
 
                                 <button type="submit" class="btn btn-danger" data-confirm-delay="5" disabled>
-                                    {{ trans('discord-login::admin.force_unlink.confirm') }}
+                                    {{ trans('discord-integration::admin.force_unlink.confirm') }}
                                 </button>
                             </div>
                         </form>
@@ -377,14 +377,14 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2 class="modal-title" id="refreshInfoLabel">
-                            <i class="bi bi-arrow-repeat"></i> {{ trans('discord-login::admin.tools.refresh.title') }}
+                            <i class="bi bi-arrow-repeat"></i> {{ trans('discord-integration::admin.tools.refresh.title') }}
                         </h2>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>{{ trans('discord-login::admin.tools.refresh.description') }}</p>
+                        <p>{{ trans('discord-integration::admin.tools.refresh.description') }}</p>
 
-                        <form method="POST" action="{{ route('discord-login.admin.users.refresh-discord-info', $user) }}" id="refreshInfoForm">
+                        <form method="POST" action="{{ route('discord-integration.admin.users.refresh-discord-info', $user) }}" id="refreshInfoForm">
                             @csrf
 
                             @include('elements.captcha', ['center' => true])
@@ -395,7 +395,7 @@
                                 </button>
 
                                 <button type="submit" class="btn btn-secondary" data-confirm-delay="5" disabled>
-                                    {{ trans('discord-login::admin.tools.refresh.confirm') }}
+                                    {{ trans('discord-integration::admin.tools.refresh.confirm') }}
                                 </button>
                             </div>
                         </form>
@@ -405,22 +405,22 @@
         </div>
     @endif
 
-    @if($user->discordAccount !== null && \Azuriom\Plugin\DiscordLogin\Support\DiscordBotClient::available())
+    @if($user->discordAccount !== null && \Azuriom\Plugin\DiscordIntegration\Support\DiscordBotClient::available())
         <div class="modal fade" id="sendDmModal" tabindex="-1" role="dialog" aria-labelledby="sendDmLabel" aria-modal="true" data-bs-backdrop="static">
             <div class="modal-dialog" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2 class="modal-title" id="sendDmLabel">
-                            <i class="bi bi-envelope"></i> {{ trans('discord-login::admin.tools.dm.title') }}
+                            <i class="bi bi-envelope"></i> {{ trans('discord-integration::admin.tools.dm.title') }}
                         </h2>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <form method="POST" action="{{ route('discord-login.admin.users.send-dm', $user) }}" id="sendDmForm">
+                        <form method="POST" action="{{ route('discord-integration.admin.users.send-dm', $user) }}" id="sendDmForm">
                             @csrf
 
                             <div class="mb-3">
-                                <label class="form-label" for="dmContent">{{ trans('discord-login::admin.tools.dm.content_label') }}</label>
+                                <label class="form-label" for="dmContent">{{ trans('discord-integration::admin.tools.dm.content_label') }}</label>
                                 <textarea class="form-control @error('content') is-invalid @enderror" id="dmContent" name="content" rows="4" maxlength="2000" required></textarea>
 
                                 @error('content')
@@ -436,7 +436,7 @@
                                 </button>
 
                                 <button type="submit" class="btn btn-primary" data-confirm-delay="5" disabled>
-                                    {{ trans('discord-login::admin.tools.dm.confirm') }}
+                                    {{ trans('discord-integration::admin.tools.dm.confirm') }}
                                 </button>
                             </div>
                         </form>
@@ -450,24 +450,24 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2 class="modal-title text-warning" id="recoveryPasswordLabel">
-                            <i class="bi bi-key"></i> {{ trans('discord-login::admin.tools.recovery_password.title') }}
+                            <i class="bi bi-key"></i> {{ trans('discord-integration::admin.tools.recovery_password.title') }}
                         </h2>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>{{ trans('discord-login::admin.tools.recovery_password.warning') }}</p>
+                        <p>{{ trans('discord-integration::admin.tools.recovery_password.warning') }}</p>
 
-                        <form method="POST" action="{{ route('discord-login.admin.users.send-recovery-password', $user) }}" id="recoveryPasswordForm">
+                        <form method="POST" action="{{ route('discord-integration.admin.users.send-recovery-password', $user) }}" id="recoveryPasswordForm">
                             @csrf
 
                             <div class="mb-3 form-check">
                                 <input class="form-check-input" type="checkbox" name="invalidate_sessions" id="invalidateSessions">
 
                                 <label class="form-check-label" for="invalidateSessions">
-                                    {{ trans('discord-login::admin.tools.recovery_password.invalidate_sessions') }}
+                                    {{ trans('discord-integration::admin.tools.recovery_password.invalidate_sessions') }}
                                 </label>
 
-                                <div class="form-text">{{ trans('discord-login::admin.tools.recovery_password.invalidate_sessions_help') }}</div>
+                                <div class="form-text">{{ trans('discord-integration::admin.tools.recovery_password.invalidate_sessions_help') }}</div>
                             </div>
 
                             @include('elements.captcha', ['center' => true])
@@ -478,7 +478,7 @@
                                 </button>
 
                                 <button type="submit" class="btn btn-warning" data-confirm-delay="5" disabled>
-                                    {{ trans('discord-login::admin.tools.recovery_password.confirm') }}
+                                    {{ trans('discord-integration::admin.tools.recovery_password.confirm') }}
                                 </button>
                             </div>
                         </form>
@@ -493,14 +493,14 @@
                     <div class="modal-content">
                         <div class="modal-header">
                             <h2 class="modal-title text-danger" id="recoveryCodesLabel">
-                                <i class="bi bi-shield-lock"></i> {{ trans('discord-login::admin.tools.recovery_codes.title') }}
+                                <i class="bi bi-shield-lock"></i> {{ trans('discord-integration::admin.tools.recovery_codes.title') }}
                             </h2>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <p>{{ trans('discord-login::admin.tools.recovery_codes.warning') }}</p>
+                            <p>{{ trans('discord-integration::admin.tools.recovery_codes.warning') }}</p>
 
-                            <form method="POST" action="{{ route('discord-login.admin.users.send-2fa-recovery-codes', $user) }}" id="recoveryCodesForm">
+                            <form method="POST" action="{{ route('discord-integration.admin.users.send-2fa-recovery-codes', $user) }}" id="recoveryCodesForm">
                                 @csrf
 
                                 @include('elements.captcha', ['center' => true])
@@ -511,7 +511,7 @@
                                     </button>
 
                                     <button type="submit" class="btn btn-danger" data-confirm-delay="5" disabled>
-                                        {{ trans('discord-login::admin.tools.recovery_codes.confirm') }}
+                                        {{ trans('discord-integration::admin.tools.recovery_codes.confirm') }}
                                     </button>
                                 </div>
                             </form>

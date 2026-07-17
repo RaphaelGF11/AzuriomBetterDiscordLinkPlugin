@@ -1,20 +1,20 @@
 @extends('layouts.app')
 
-@section('title', trans('discord-login::messages.register.title'))
+@section('title', trans('discord-integration::messages.register.title'))
 
 @section('content')
 <div class="row justify-content-center">
     <div class="col-md-9 col-lg-6">
-        <h1>{{ trans('discord-login::messages.register.title') }}</h1>
+        <h1>{{ trans('discord-integration::messages.register.title') }}</h1>
 
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
-            {{ trans($duplicate ? 'discord-login::messages.register.duplicate_notice' : 'discord-login::messages.register.not_found') }}
+            {{ trans($duplicate ? 'discord-integration::messages.register.duplicate_notice' : 'discord-integration::messages.register.not_found') }}
         </div>
 
         <div class="card">
             <div class="card-body">
-                <form method="POST" action="{{ route('discord-login.register') }}" id="captcha-form">
+                <form method="POST" action="{{ route('discord-integration.register') }}" id="captcha-form">
                     @csrf
 
                     <div class="mb-3">
@@ -43,12 +43,12 @@
                         <div class="mb-3">
                             <label class="form-label">{{ trans('auth.email') }}</label>
                             <input type="email" class="form-control" value="{{ $discordEmail }}" disabled>
-                            <div class="form-text">{{ trans('discord-login::messages.register.email_help') }}</div>
+                            <div class="form-text">{{ trans('discord-integration::messages.register.email_help') }}</div>
                         </div>
                     @endif
 
                     <div class="mb-3">
-                        <label class="form-label" for="password">{{ trans($passwordRequired ? 'auth.password' : 'discord-login::messages.register.password_optional') }}</label>
+                        <label class="form-label" for="password">{{ trans($passwordRequired ? 'auth.password' : 'discord-integration::messages.register.password_optional') }}</label>
                         <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" autocomplete="new-password" @required($passwordRequired)>
 
                         @error('password')
@@ -58,7 +58,7 @@
                         @enderror
 
                         @unless($passwordRequired)
-                            <div class="form-text">{{ trans('discord-login::messages.register.password_help') }}</div>
+                            <div class="form-text">{{ trans('discord-integration::messages.register.password_help') }}</div>
                         @endunless
                     </div>
 
@@ -71,7 +71,7 @@
 
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
-                            {{ trans('discord-login::messages.register.submit') }}
+                            {{ trans('discord-integration::messages.register.submit') }}
                         </button>
                     </div>
                 </form>

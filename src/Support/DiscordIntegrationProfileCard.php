@@ -1,11 +1,11 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Support;
+namespace Azuriom\Plugin\DiscordIntegration\Support;
 
 use Azuriom\Extensions\Plugin\UserProfileCardComposer;
 use Illuminate\Support\Facades\Auth;
 
-class DiscordLoginProfileCard extends UserProfileCardComposer
+class DiscordIntegrationProfileCard extends UserProfileCardComposer
 {
     /**
      * Get the cards to add to the user profile.
@@ -23,8 +23,8 @@ class DiscordLoginProfileCard extends UserProfileCardComposer
 
         return [
             [
-                'name' => trans('discord-login::messages.profile.title'),
-                'view' => 'discord-login::profile.card',
+                'name' => trans('discord-integration::messages.profile.title'),
+                'view' => 'discord-integration::profile.card',
                 'data' => [
                     'discordAccount' => $account,
                     'showBypass2fa' => $user->hasTwoFactorAuth(),

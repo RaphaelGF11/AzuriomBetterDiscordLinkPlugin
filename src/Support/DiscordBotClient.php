@@ -1,6 +1,6 @@
 <?php
 
-namespace Azuriom\Plugin\DiscordLogin\Support;
+namespace Azuriom\Plugin\DiscordIntegration\Support;
 
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -94,6 +94,19 @@ class DiscordBotClient
     }
 
     /**
+     * The guilds the bot is currently a member of, used to populate a server
+     * picker in the admin UI instead of asking for a raw guild ID. Null on
+     * any failure (missing token, network error), same convention as every
+     * other method here.
+     *
+     * @return array[]|null
+     */
+    public static function guilds(): ?array
+    {
+        return static::request('get', '/users/@me/guilds?limit=200')?->json();
+    }
+
+    /**
      * Perform a Bot-authenticated request, returning the response on success
      * or null on any failure (missing token, network error, non-2xx status).
      */
@@ -117,7 +130,7 @@ class DiscordBotClient
         }
 
         if ($response->failed()) {
-            Log::warning('discord-login: Discord Bot API call failed', [
+            Log::warning('discord-integration: Discord Bot API call failed', [
                 'method' => $method,
                 'path' => $path,
                 'status' => $response->status(),
